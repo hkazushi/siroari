@@ -7,6 +7,7 @@ import { listProjects, deleteProject } from "@/lib/db";
 import { useEditor } from "@/lib/store";
 import type { FloorPlan } from "@/types";
 import { formatArea, polygonArea } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 
 export default function ProjectsPage() {
   const [list, setList] = useState<FloorPlan[]>([]);
@@ -35,12 +36,22 @@ export default function ProjectsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <Link href="/" className="text-xs text-slate-500 hover:text-slate-800">
-            ← トップへ
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="hover:opacity-80">
+            <Logo size={56} withText={false} />
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-[#1e3a5f]">過去の現場記録</h1>
+          <div>
+            <Link href="/" className="text-xs text-slate-500 hover:text-slate-800">
+              ← トップへ
+            </Link>
+            <h1 className="mt-0.5 text-2xl font-bold text-[#1e3a5f]">
+              過去の現場記録
+            </h1>
+            <div className="text-[11px] text-slate-500">
+              東山メンテナンス
+            </div>
+          </div>
         </div>
         <Link
           href="/editor"

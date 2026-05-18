@@ -147,17 +147,17 @@ export function Editor() {
 
   return (
     <div className="flex h-dvh w-full flex-col bg-slate-50">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5">
+      <div className="flex items-center gap-3 border-b-2 border-[#991b1b] bg-white px-3 py-2">
         <Link href="/" className="hover:opacity-80">
-          <Logo size={28} withText={false} />
+          <Logo size={44} withText={false} />
         </Link>
         <div className="leading-tight">
-          <div className="text-[12px] font-bold text-[#1e3a5f]">
+          <div className="text-[14px] font-bold text-[#1e3a5f]">
             東山メンテナンス
           </div>
-          <div className="text-[9px] text-slate-500">害虫駆除 / 現場マップ</div>
+          <div className="text-[10px] text-slate-500">害虫駆除 / 現場マップ</div>
         </div>
-        <div className="ml-auto hidden text-[10px] text-slate-400 sm:block">
+        <div className="ml-auto hidden text-[11px] font-semibold text-[#991b1b] sm:block">
           害虫から、快適な暮らしを守る。
         </div>
       </div>

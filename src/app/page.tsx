@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo, LogoBadge } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
 import {
   Download,
   Mail,
@@ -59,9 +59,17 @@ function Sidebar() {
   return (
     <aside className="hidden w-[240px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
       {/* Brand */}
-      <div className="border-b border-slate-100 px-4 py-4">
-        <Logo size={56} />
-        <div className="mt-3 text-[11px] font-semibold tracking-wide text-[#1e3a5f]">
+      <div className="border-b border-slate-100 px-4 py-5">
+        <div className="flex justify-center">
+          <Logo size={140} withText={false} />
+        </div>
+        <div className="mt-3 text-center text-[13px] font-bold text-[#1e3a5f]">
+          東山メンテナンス
+        </div>
+        <div className="mt-0.5 text-center text-[10px] text-slate-500">
+          害虫から、快適な暮らしを守る。
+        </div>
+        <div className="mt-3 border-t border-slate-100 pt-2 text-center text-[10px] font-semibold tracking-wide text-[#991b1b]">
           害虫駆除 / 建物メンテナンス
         </div>
       </div>
@@ -156,10 +164,24 @@ function Hero() {
   return (
     <section className="relative">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr]">
-        {/* Left: image area */}
-        <div className="relative h-72 overflow-hidden bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] sm:h-80 lg:h-[440px]">
+        {/* Left: logo + scene */}
+        <div className="relative flex h-72 items-center justify-center overflow-hidden bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] sm:h-80 lg:h-[480px]">
           <div className="absolute left-0 right-0 top-0 z-10 h-2 bg-[#991b1b]" />
-          <HeroIllustration />
+          <div className="relative z-10 flex flex-col items-center px-6 text-center">
+            <div className="rounded-full bg-white p-4 shadow-2xl">
+              <Logo size={220} withText={false} />
+            </div>
+            <div className="mt-4 text-[11px] font-bold tracking-[0.3em] text-amber-300">
+              PEST CONTROL
+            </div>
+            <div className="mt-1 text-[10px] text-slate-300">
+              SAFE &amp; EFFECTIVE · PROTECT YOUR SPACE
+            </div>
+          </div>
+          {/* faint floor plan in the background */}
+          <div className="absolute inset-0 opacity-10">
+            <HeroIllustration />
+          </div>
         </div>
 
         {/* Right: copy */}
@@ -256,8 +278,10 @@ function NavTabs() {
   return (
     <nav className="bg-[#0f172a] text-white">
       <div className="flex flex-wrap items-center">
-        <div className="hidden bg-[#991b1b] px-4 py-3 text-sm font-bold sm:flex sm:items-center sm:gap-1.5">
-          <Bug size={16} />
+        <div className="hidden bg-[#991b1b] px-4 py-2 text-sm font-bold sm:flex sm:items-center sm:gap-2">
+          <div className="grid h-7 w-7 place-items-center rounded-full bg-white">
+            <Logo size={24} withText={false} />
+          </div>
           害虫駆除
         </div>
         <div className="px-4 py-3 text-sm font-semibold sm:px-5">
@@ -287,17 +311,17 @@ function BodySection() {
   return (
     <section className="bg-slate-50 py-10 sm:py-14">
       <div className="mx-auto max-w-5xl px-6">
-        <div className="text-center">
+        <div className="flex flex-col items-center text-center">
           <div className="text-xs font-semibold text-slate-500">
             害虫駆除現場の記録アプリ
           </div>
-          <h2 className="mt-2 inline-flex items-center gap-3">
-            <LogoBadge size={56} />
-            <span className="text-3xl font-black text-[#1e3a5f] sm:text-4xl">
-              東山メンテナンス
-            </span>
+          <div className="mt-3">
+            <Logo size={160} withText={false} />
+          </div>
+          <h2 className="mt-3 text-3xl font-black text-[#1e3a5f] sm:text-4xl">
+            東山メンテナンス
           </h2>
-          <div className="mt-1 text-[12px] text-slate-500">
+          <div className="mt-1 text-[13px] text-slate-500">
             害虫から、快適な暮らしを守る。
           </div>
         </div>
