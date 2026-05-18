@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 東山メンテナンス | 害虫駆除 現場マップ
 
-## Getting Started
+東山メンテナンス専用の現場記録 Web アプリ。
+タブレット・スマホ・PC で現場の見取り図を作成し、害虫発見ポイント・毒餌設置場所・薬剤散布範囲などを記録します。
 
-First, run the development server:
+> 害虫から、快適な暮らしを守る。
+
+## 主な機能
+
+- **手描きで間取り作成** — マウス・タッチ・Apple Pencil 統一対応。910mm 半間グリッドにスナップ + 直角自動補正
+- **害虫スタンプ** — ゴキブリ / アリ / ネズミ / シロアリ / ハエ・蚊
+- **施工スタンプ** — 毒餌 / 捕獲器 / 粘着シート / 薬剤散布範囲 / 侵入経路 / クラック / 巣 / 水濡れ
+- **建具・家具スタンプ** — ドア・引き戸・窓・階段・キッチン・浴槽・ベッド・ソファなど 18 種
+- **自動カウント** — 害虫発見数・施工記録数・部屋面積（㎡・畳）を自動集計
+- **オフライン保存** — IndexedDB で複数現場を端末内に保存
+- **PNG / PDF 出力** — 報告書・お客様提出資料にそのまま使用可
+- **マルチデバイス** — PC / iPad / スマホ 全対応
+
+## 技術スタック
+
+- Next.js 16 + TypeScript
+- Tailwind CSS v4
+- React Konva（Canvas 描画）
+- Zustand（Undo / Redo 対応）
+- Dexie.js（IndexedDB）
+- jsPDF（PDF 出力）
+
+## セットアップ
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ビルド
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ディレクトリ構成
 
-## Learn More
+```
+src/
+├── app/
+│   ├── page.tsx          # ランディング
+│   ├── editor/           # 現場マップ エディタ
+│   ├── projects/         # 過去の現場一覧
+│   └── layout.tsx
+├── components/
+│   ├── Logo.tsx          # 会社ロゴ（画像 + SVG フォールバック）
+│   └── editor/           # エディタ UI
+├── lib/
+│   ├── store.ts          # Zustand ストア（Undo/Redo 付き）
+│   ├── db.ts             # IndexedDB 永続化
+│   ├── stamps.ts         # スタンプ定義
+│   └── utils.ts          # 幾何計算（面積・スナップ・直角補正）
+└── types/
+    └── index.ts          # 型定義
+```
 
-To learn more about Next.js, take a look at the following resources:
+## ロゴ画像
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+会社ロゴを `public/logo.png`（正方形・透過 PNG・1024×1024 推奨）に配置すると、サイドバーとエディタヘッダーで表示されます。未配置時は SVG フォールバックが表示されます。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 操作ホットキー
 
-## Deploy on Vercel
+| キー | 機能 |
+|---|---|
+| `V` | 選択 |
+| `H` | 移動（パン） |
+| `W` | 壁 |
+| `R` | 部屋 |
+| `S` | スタンプ |
+| `T` | 文字 |
+| `D` | 寸法 |
+| `E` | 削除 |
+| `Ctrl/⌘ + Z` | 元に戻す |
+| `Ctrl/⌘ + Shift + Z` | やり直し |
+| `Delete` | 選択削除 |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+© 東山メンテナンス
