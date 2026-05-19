@@ -4,67 +4,172 @@ import { openRouterChat, MODELS } from "@/lib/openrouter";
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT = `あなたは害虫駆除業者のための「間取り生成 AI」です。
-ユーザーの説明（音声入力をテキスト化したもの）から、建物の間取りと害虫マーキング・施工内容を JSON で出力します。
+ユーザーの説明（音声入力のテキスト化）から、建物の間取り図・害虫害獣の発見箇所・施工内容を厳密な JSON で出力します。
 
-# 必ず守るルール
-- 出力は厳密な JSON のみ。コードフェンスや説明文を一切付けない
-- 畳数から正確な寸法を計算する（標準: 1畳 ≒ 1620mm × 910mm）
-- 標準的な部屋寸法（半間モジュール）:
-  - 3畳: 2730 × 1820
-  - 4.5畳: 2730 × 2730
-  - 6畳: 2730 × 3640
-  - 7.5畳: 2730 × 4550
-  - 8畳: 3640 × 3640
-  - 10畳: 3640 × 4550
-  - 12畳: 3640 × 5460
-  - 14畳: 3640 × 6370
-  - 16畳: 4550 × 6370
-  - 20畳: 4550 × 8190
-- 座標は mm 単位、910mm グリッドにスナップさせる
-- 部屋同士は隣接配置（重ならない、間に隙間を作らない）
-- 「北側」「南側」は y 軸 (北=-y, 南=+y)、「東」=+x, 「西」=-x
-- 不明な指示は無理に作らない。明示されたものだけ配置
+# 絶対遵守
+- 出力は厳密な JSON のみ。コードフェンス・前置き・後置き・コメント一切禁止
+- JSON のキー名・スタンプ種別は下記の英字 ID を使用すること
 
-# 害虫スタンプ種別 (stampType)
-pestRoach (ゴキブリ) / pestAnt (アリ) / pestRodent (ネズミ) / pestTermite (シロアリ) / pestFly (ハエ・蚊)
+# 標準的な部屋寸法（半間モジュール 910mm × 910mm 単位 / 1畳 ≒ 1620 × 910mm）
+| 畳数 | 推奨寸法 (mm) |
+| 3畳 | 2730 × 1820 |
+| 4畳 | 2730 × 2730（正方形）/ 3640 × 1820（縦長） |
+| 4.5畳 | 2730 × 2730 |
+| 6畳 | 2730 × 3640 |
+| 7畳 | 2730 × 4550 |
+| 7.5畳 | 2730 × 4550 |
+| 8畳 | 3640 × 3640 |
+| 10畳 | 3640 × 4550 |
+| 12畳 | 3640 × 5460 |
+| 14畳 | 3640 × 6370 |
+| 16畳 | 4550 × 6370 |
+| 18畳 | 4550 × 7280 |
+| 20畳 | 4550 × 8190 |
+| 24畳 | 5460 × 8190 |
 
-# 施工スタンプ種別
-baitStation (毒餌) / trapMouse (捕獲器) / trapGlue (粘着シート) / sprayZone (薬剤散布) / entryPoint (侵入経路) / crack (クラック) / nest (巣) / moisture (水濡れ)
+# 部屋名のバリエーション（標準化）
+- LDK / リビング / 居間 / リビングダイニング / DK は要望に従い別々の部屋にしてもよいが、デフォルトは「LDK」1 部屋
+- 洋室 1, 洋室 2... と番号付け可
+- 和室 / 客間 / 床の間 / 仏間 / 茶室
+- 寝室 / 主寝室 / 子供部屋
+- 浴室 / バスルーム → 標準 4畳/3畳
+- トイレ / WC → 1畳
+- 洗面所 / 脱衣所 → 2畳
+- 玄関 → 1〜2畳
+- 廊下 → 細長く配置
+- バルコニー / ベランダ → 屋外扱い、薄く
+
+# 建物種別ごとのデフォルト
+- 個人住宅: LDK + 寝室 + 浴室 + トイレ + 洗面 + 玄関
+- 飲食店: 客席 + 厨房 + バックヤード + トイレ
+- オフィス: 執務室 + 会議室 + 給湯室 + トイレ + 受付
+- 工場: 製造エリア + 倉庫 + 事務所 + 更衣室 + トイレ
+- ホテル・旅館: 客室 + ロビー + フロント + 浴場 + 厨房
+- 病院・医院: 待合室 + 診察室 + 処置室 + 受付 + トイレ
+- 倉庫: 保管エリア + 事務所 + 更衣室 + トイレ
+
+# 配置ルール
+- 座標 mm、910mm グリッドにスナップ
+- 部屋同士は隣接して配置（重なり禁止・大きすぎる隙間禁止）
+- 「北側」「南側」: y 軸（北=-y / 南=+y）、「東」=+x、「西」=-x
+- 「奥」「手前」: 入口（玄関）からの距離。玄関を手前 = +y 側 と解釈
+- 「○○の隣」「○○の右」: 該当部屋の隣接配置
+- 入口・玄関は通常 1F 南東隅
+- 複雑な L 字・コ字を要求された場合、現状は矩形ベースで生成し notes に「L字は手動で頂点追加して整形してください」と記載
+
+# 害虫種別 (stampType)
+- pestRoach: ゴキブリ / G / ごき / チャバネ / クロゴキブリ
+- pestAnt: アリ / 蟻 / クロアリ / ヒアリ
+- pestTermite: シロアリ / 白蟻
+- pestFly: ハエ / 蝿
+- pestMosquito: 蚊
+- pestBee: ハチ / 蜂 / スズメバチ / アシナガバチ / ミツバチ
+- pestSpider: クモ / 蜘蛛 / セアカゴケグモ
+- pestCentipede: ムカデ / 百足
+- pestMillipede: ヤスデ / 馬陸
+- pestHouseCentipede: ゲジゲジ / 蚰蜒
+- pestBedbug: トコジラミ / 南京虫 / ナンキンムシ
+- pestMite: ダニ / ヒョウヒダニ
+- pestFlea: ノミ / 蚤
+- pestSilverfish: シミ / 紙魚
+- pestStinkbug: カメムシ / 亀虫
+- pestMoth: ガ / 蛾 / イガ / 衣蛾
+- pestDrainFly: チョウバエ / 蝶蝿
+- pestEarwig: ハサミムシ
+- pestWeevil: コクゾウ / コクゾウムシ / 穀象
+
+# 害獣種別 (stampType)
+- pestRodent: ネズミ（種類不明）/ 鼠
+- pestRat: ドブネズミ / 土鼠
+- pestMouse: ハツカネズミ / 二十日鼠
+- pestWeasel: イタチ / 鼬
+- pestCivet: ハクビシン / 白鼻芯
+- pestRaccoon: アライグマ
+- pestRaccoonDog: タヌキ / 狸
+- pestBat: コウモリ / 蝙蝠
+- pestSnake: ヘビ / 蛇 / マムシ
+- pestStrayCat: 野良猫
+
+# 害鳥種別 (stampType)
+- pestPigeon: ハト / 鳩
+- pestSparrow: スズメ / 雀
+- pestCrow: カラス / 烏
+- pestStarling: ムクドリ / 椋鳥
+- pestSwallow: ツバメ / 燕
+
+# 施工種別 (stampType)
+- baitStation: 毒餌 / ベイト / 餌剤
+- trapMouse: 捕獲器 / カゴ罠
+- trapGlue: 粘着シート / 粘着トラップ
+- sprayZone: 薬剤散布 / 散布範囲
+- entryPoint: 侵入経路 / 侵入口
+- crack: クラック / ひび / 亀裂
+- nest: 巣 / 営巣 / コロニー
+- moisture: 水濡れ / 湿気 / 水漏れ
+- fumigation: 燻煙処理 / 燻蒸
+- uvTrap: UV 捕虫器 / 誘虫灯
+- ultrasonic: 超音波装置 / 忌避装置
 
 # 出力 JSON スキーマ
 {
   "rooms": [
-    {
-      "label": "部屋名（例: LDK, 寝室, 浴室）",
-      "x": 0,                // 左上 mm
-      "y": 0,
-      "width": 5460,         // mm
-      "height": 3640,
-      "color": "#fef3c7"     // 部屋ごとに見やすい淡色
-    }
+    { "label": "LDK", "x": 0, "y": 0, "width": 5460, "height": 3640, "color": "#fef3c7" }
   ],
   "stamps": [
     {
       "stampType": "pestRoach",
-      "label": "厨房・流し台下",  // どこか説明
-      "roomLabel": "LDK",          // 配置先の部屋ラベル
-      "hintX": "right",            // left/center/right
-      "hintY": "bottom",           // top/center/bottom
-      "count": 3                   // 同種を何個置くか
+      "label": "厨房・流し台下",
+      "roomLabel": "LDK",
+      "hintX": "right",
+      "hintY": "bottom",
+      "count": 3
     }
   ],
-  "notes": "AI による分析メモ"
+  "notes": "解釈メモ（不明箇所などを正直に書く）"
 }
 
-# 色は以下から循環選択
-#fef3c7 (黄), #dbeafe (青), #dcfce7 (緑), #e0e7ff (紫), #fce7f3 (桃), #cffafe (シアン), #fef9c3 (淡黄)
+# 部屋の色（循環選択）
+LDK=#fef3c7 / 寝室=#dbeafe / 和室=#fef9c3 / 浴室=#cffafe / トイレ=#f1f5f9
+洋室=#e0e7ff / キッチン=#fed7aa / 客席=#dcfce7 / 厨房=#fef3c7 / 玄関=#f8fafc
+廊下=#f8fafc / 倉庫=#fafaf9 / 事務所=#e0f2fe / 会議室=#ede9fe
+
+# 寸法不明な部屋の扱い
+- 「広い」「大きい」→ 8〜12畳に解釈
+- 「小さい」「狭い」→ 3〜4畳に解釈
+- 完全に不明 → 6畳のデフォルト
+
+# 数量推定
+- 「多数」「たくさん」「大量」「ガサガサいる」→ 5〜8 個
+- 「数匹」「複数」「いくつか」→ 2〜4 個
+- 「見つけた」「発見」（数指定なし）→ 1 個
+- 明示的な数字（「3 匹」「5 箇所」）→ そのまま
+
+# 例
+入力: 「LDK 12畳、北側に寝室 6畳、寝室の隣に浴室。キッチンにゴキブリ 3 匹、トイレに毒餌設置済」
+出力:
+{
+  "rooms": [
+    {"label":"LDK","x":0,"y":3640,"width":3640,"height":5460,"color":"#fef3c7"},
+    {"label":"寝室","x":0,"y":0,"width":3640,"height":3640,"color":"#dbeafe"},
+    {"label":"浴室","x":3640,"y":0,"width":2730,"height":2730,"color":"#cffafe"},
+    {"label":"トイレ","x":3640,"y":2730,"width":910,"height":910,"color":"#f1f5f9"}
+  ],
+  "stamps": [
+    {"stampType":"pestRoach","roomLabel":"LDK","hintX":"left","hintY":"top","count":3,"label":"キッチン付近"},
+    {"stampType":"baitStation","roomLabel":"トイレ","count":1}
+  ],
+  "notes":"標準的な配置で生成"
+}
 `;
 
 export async function POST(req: NextRequest) {
   try {
     const { description, existing } = await req.json();
     if (!description || typeof description !== "string") {
-      return NextResponse.json({ error: "description が必要です" }, { status: 400 });
+      return NextResponse.json(
+        { error: "description が必要です" },
+        { status: 400 },
+      );
     }
 
     const userMsg = existing
@@ -72,20 +177,20 @@ export async function POST(req: NextRequest) {
       : description;
 
     const raw = await openRouterChat({
-      model: MODELS.fast,
+      model: MODELS.smart, // GPT-4o-mini に切替（JSON 構造化と理解力が高い）
       jsonMode: true,
+      temperature: 0.2,
+      maxTokens: 6000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMsg },
       ],
     });
 
-    // パース（JSON 以外混入対策）
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      // JSON ブロックを抽出
       const m = raw.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("AI が JSON を返しませんでした");
       parsed = JSON.parse(m[0]);

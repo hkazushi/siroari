@@ -8,13 +8,8 @@ import { DialogShell } from "./Dialogs";
 import type { Visit, Room } from "@/types";
 import { Flame } from "lucide-react";
 
-const PEST_TYPES = new Set([
-  "pestRoach",
-  "pestAnt",
-  "pestRodent",
-  "pestTermite",
-  "pestFly",
-]);
+import { PEST_STAMP_TYPES } from "@/lib/stamps";
+const PEST_TYPES = new Set<string>(PEST_STAMP_TYPES);
 
 export function HeatmapDialog({ onClose }: { onClose: () => void }) {
   const { siteId, paperSize } = useEditor();

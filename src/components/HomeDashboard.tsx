@@ -9,6 +9,7 @@ import {
   listVisits,
 } from "@/lib/db";
 import { useEditor } from "@/lib/store";
+import { PEST_STAMP_TYPES } from "@/lib/stamps";
 import type { Customer, Site, Visit } from "@/types";
 import {
   Users,
@@ -178,13 +179,7 @@ function Dashboard({
                 const pestCount = v.elements.filter(
                   (e) =>
                     e.type === "stamp" &&
-                    [
-                      "pestRoach",
-                      "pestAnt",
-                      "pestRodent",
-                      "pestTermite",
-                      "pestFly",
-                    ].includes(e.stampType),
+                    (PEST_STAMP_TYPES as string[]).includes(e.stampType),
                 ).length;
                 return (
                   <button

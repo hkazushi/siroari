@@ -3,31 +3,74 @@ import { openRouterChat, MODELS } from "@/lib/openrouter";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `あなたは害虫識別の専門家です。
-写真から害虫を識別し、JSON で結果を返してください。
+const SYSTEM_PROMPT = `あなたは害虫害獣識別の専門家です。
+写真から害虫害獣を識別し、JSON で結果を返してください。
 
 # 出力 JSON
 {
-  "identified": true,           // 害虫が写っているか
-  "primaryType": "pestRoach",   // 主に写っている害虫種
-  "species": "チャバネゴキブリ", // 詳しい種名
-  "confidence": "高",            // 高/中/低
-  "description": "見分け方や特徴の解説（100 字程度）",
-  "recommendations": [           // 対策の箇条書き 3 つ
+  "identified": true,
+  "primaryType": "pestRoach",
+  "species": "チャバネゴキブリ",
+  "confidence": "高",
+  "description": "見分け方や特徴の解説（100 字程度、生態・危険性含む）",
+  "recommendations": [
     "ベイト剤（フィプロニル系）を高所と低所に分散設置",
     "発生源の水回り・厨房付近の清掃徹底",
     "IGR ピリプロキシフェン併用で繁殖抑制"
   ]
 }
 
-# primaryType の値
-pestRoach (ゴキブリ) / pestAnt (アリ) / pestRodent (ネズミ・痕跡) / pestTermite (シロアリ) / pestFly (ハエ・蚊) / other (それ以外、害虫でないもの含む)
+# primaryType（識別可能な全種別）
+害虫:
+- pestRoach (ゴキブリ各種: チャバネ・クロ・ヤマト)
+- pestAnt (アリ: クロアリ・ヒアリ・アルゼンチンアリ等)
+- pestTermite (シロアリ: ヤマトシロアリ・イエシロアリ)
+- pestFly (ハエ各種)
+- pestMosquito (蚊: ヒトスジシマカ・アカイエカ等)
+- pestBee (ハチ: スズメバチ・アシナガバチ・ミツバチ)
+- pestSpider (クモ: 一般的なクモ・セアカゴケグモ等)
+- pestCentipede (ムカデ)
+- pestMillipede (ヤスデ)
+- pestHouseCentipede (ゲジゲジ)
+- pestBedbug (トコジラミ・南京虫)
+- pestMite (ダニ: ヒョウヒダニ・マダニ等)
+- pestFlea (ノミ)
+- pestSilverfish (シミ・紙魚)
+- pestStinkbug (カメムシ)
+- pestMoth (ガ・イガ)
+- pestDrainFly (チョウバエ)
+- pestEarwig (ハサミムシ)
+- pestWeevil (コクゾウ・穀象等の貯穀害虫)
+
+害獣:
+- pestRodent (ネズミ種類不明)
+- pestRat (ドブネズミ)
+- pestMouse (ハツカネズミ)
+- pestWeasel (イタチ)
+- pestCivet (ハクビシン)
+- pestRaccoon (アライグマ)
+- pestRaccoonDog (タヌキ)
+- pestBat (コウモリ)
+- pestSnake (ヘビ: マムシ等含む)
+- pestStrayCat (野良猫)
+
+害鳥:
+- pestPigeon (ハト・ドバト)
+- pestSparrow (スズメ)
+- pestCrow (カラス: ハシブト・ハシボソ)
+- pestStarling (ムクドリ)
+- pestSwallow (ツバメ)
+
+その他:
+- other (識別不能・害虫害獣でない・痕跡のみ等)
 
 # ルール
-- 確信できない時は confidence: "低" にする
-- 害虫でない場合は identified: false、primaryType: "other"
-- 食品害虫（コクゾウ等）や紙魚（シミ）も other
+- 確信できない時は confidence: "低"
+- 害虫害獣でない場合は identified: false、primaryType: "other"
 - 写真が不鮮明・暗い場合は素直にそう書く
+- 痕跡（足跡・糞・抜け殻・かじり跡）のみの場合は推定種を返しつつ confidence: "中" 程度に
+- 危険な種（スズメバチ・セアカゴケグモ・マムシ等）は description に「注意」「危険」を含める
+- recommendations は **その種に特化した** 対策を 3 つ。汎用的な内容は避ける
 `;
 
 export async function POST(req: NextRequest) {

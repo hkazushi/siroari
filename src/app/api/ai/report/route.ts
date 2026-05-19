@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openRouterChat, MODELS } from "@/lib/openrouter";
+import { PEST_STAMP_TYPES, stampDefOf } from "@/lib/stamps";
+import type { StampType } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -31,47 +33,40 @@ export async function POST(req: NextRequest) {
     }
 
     // 必要データだけ整理して LLM に渡す
+    const PEST_SET = new Set<string>(PEST_STAMP_TYPES);
+    const TREAT_SET = new Set([
+      "baitStation",
+      "trapMouse",
+      "trapGlue",
+      "sprayZone",
+      "entryPoint",
+      "crack",
+      "nest",
+      "moisture",
+      "fumigation",
+      "uvTrap",
+      "ultrasonic",
+    ]);
     const pestStamps = (visit.elements ?? []).filter(
       (e: { type: string; stampType?: string }) =>
-        e.type === "stamp" &&
-        ["pestRoach", "pestAnt", "pestRodent", "pestTermite", "pestFly"].includes(
-          e.stampType ?? "",
-        ),
+        e.type === "stamp" && PEST_SET.has(e.stampType ?? ""),
     );
     const treatStamps = (visit.elements ?? []).filter(
       (e: { type: string; stampType?: string }) =>
-        e.type === "stamp" &&
-        [
-          "baitStation",
-          "trapMouse",
-          "trapGlue",
-          "sprayZone",
-          "entryPoint",
-          "crack",
-          "nest",
-          "moisture",
-        ].includes(e.stampType ?? ""),
+        e.type === "stamp" && TREAT_SET.has(e.stampType ?? ""),
     );
 
-    const stampLabels: Record<string, string> = {
-      pestRoach: "ゴキブリ",
-      pestAnt: "アリ",
-      pestRodent: "ネズミ",
-      pestTermite: "シロアリ",
-      pestFly: "ハエ・蚊",
-      baitStation: "毒餌（ベイト）",
-      trapMouse: "捕獲器",
-      trapGlue: "粘着シート",
-      sprayZone: "薬剤散布範囲",
-      entryPoint: "侵入経路",
-      crack: "クラック",
-      nest: "巣・営巣",
-      moisture: "水濡れ箇所",
+    const labelOf = (t: string): string => {
+      try {
+        return stampDefOf(t as StampType).label;
+      } catch {
+        return t;
+      }
     };
     const groupCount = (arr: { stampType?: string; note?: string }[]) => {
       const m: Record<string, number> = {};
       for (const s of arr) {
-        const t = stampLabels[s.stampType ?? ""] ?? s.stampType ?? "";
+        const t = labelOf(s.stampType ?? "");
         m[t] = (m[t] ?? 0) + 1;
       }
       return m;

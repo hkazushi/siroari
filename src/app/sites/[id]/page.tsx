@@ -16,6 +16,7 @@ import type { Site, Customer, Visit } from "@/types";
 import { Logo } from "@/components/Logo";
 import { VoiceTextArea } from "@/components/VoiceTextArea";
 import { EntityPhotoSection } from "@/components/EntityPhotoSection";
+import { PEST_STAMP_TYPES } from "@/lib/stamps";
 import {
   ArrowLeft,
   MapPin,
@@ -259,13 +260,7 @@ export default function SiteDetailPage() {
                 const pestCount = v.elements.filter(
                   (e) =>
                     e.type === "stamp" &&
-                    [
-                      "pestRoach",
-                      "pestAnt",
-                      "pestRodent",
-                      "pestTermite",
-                      "pestFly",
-                    ].includes(e.stampType),
+                    (PEST_STAMP_TYPES as string[]).includes(e.stampType),
                 ).length;
                 const treatCount = v.elements.filter(
                   (e) =>

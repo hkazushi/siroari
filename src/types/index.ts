@@ -39,12 +39,44 @@ export type StampType =
   | "fridge"
   | "washer"
   | "closet"
-  // Pest control specific
+  // 害虫
   | "pestRoach"
   | "pestAnt"
   | "pestRodent"
   | "pestTermite"
   | "pestFly"
+  | "pestMosquito"
+  | "pestBee"
+  | "pestSpider"
+  | "pestCentipede"
+  | "pestMillipede"
+  | "pestBedbug"
+  | "pestMite"
+  | "pestFlea"
+  | "pestSilverfish"
+  | "pestStinkbug"
+  | "pestMoth"
+  | "pestDrainFly"
+  | "pestEarwig"
+  | "pestWeevil"
+  | "pestHouseCentipede"
+  // 害獣
+  | "pestRat"
+  | "pestMouse"
+  | "pestWeasel"
+  | "pestCivet"
+  | "pestRaccoon"
+  | "pestRaccoonDog"
+  | "pestBat"
+  | "pestSnake"
+  | "pestStrayCat"
+  // 害鳥
+  | "pestPigeon"
+  | "pestSparrow"
+  | "pestCrow"
+  | "pestStarling"
+  | "pestSwallow"
+  // 施工
   | "baitStation"
   | "trapMouse"
   | "trapGlue"
@@ -52,7 +84,10 @@ export type StampType =
   | "entryPoint"
   | "crack"
   | "nest"
-  | "moisture";
+  | "moisture"
+  | "fumigation"
+  | "uvTrap"
+  | "ultrasonic";
 
 export type PhotoKind = "before" | "after" | "other";
 

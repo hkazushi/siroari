@@ -6,7 +6,7 @@ import { getPublicVisit } from "@/lib/sync";
 import { isCloudConfigured } from "@/lib/supabase";
 import { photoSrc } from "@/lib/photoStorage";
 import type { Visit, Customer, Site, Stamp } from "@/types";
-import { stampDefOf } from "@/lib/stamps";
+import { stampDefOf, PEST_STAMP_TYPES } from "@/lib/stamps";
 import { formatArea, polygonArea } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 
@@ -81,9 +81,7 @@ export default function PublicReportPage() {
   const pestStamps = visit.elements.filter(
     (e): e is Stamp =>
       e.type === "stamp" &&
-      ["pestRoach", "pestAnt", "pestRodent", "pestTermite", "pestFly"].includes(
-        e.stampType,
-      ),
+      (PEST_STAMP_TYPES as string[]).includes(e.stampType),
   );
   const treatStamps = visit.elements.filter(
     (e): e is Stamp =>
