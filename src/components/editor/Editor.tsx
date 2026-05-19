@@ -60,6 +60,8 @@ export function Editor() {
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [photoStampId, setPhotoStampId] = useState<string | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [aiMode, setAiMode] = useState<"text" | "photo" | "canvas">("text");
+  const [aiCanvasSnap, setAiCanvasSnap] = useState<string | null>(null);
 
   // 起動時にビューポート幅でデフォルト状態を決定（デスクトップは両側パネル開く）
   useEffect(() => {
@@ -197,6 +199,7 @@ export function Editor() {
         t: "text",
         d: "dimension",
         e: "eraser",
+        k: "sketch",
       };
       const tool = map[ev.key.toLowerCase()];
       if (tool) useEditor.getState().setTool(tool as never);
@@ -280,7 +283,11 @@ export function Editor() {
         onTechnicianSign={() => setDialog("technicianSign")}
         onVisitMeta={() => setDialog("visitMeta")}
         onHeatmap={() => setDialog("heatmap")}
-        onAI={() => setDialog("ai")}
+        onAI={() => {
+          setAiMode("text");
+          setAiCanvasSnap(null);
+          setDialog("ai");
+        }}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -294,6 +301,24 @@ export function Editor() {
           <CompassOverlay />
           <ScaleBarOverlay />
           <QuickStamps />
+
+          {/* 手描きがある時の「AI で整形」フローティングボタン */}
+          {elements.some((e) => e.type === "sketch") && (
+            <button
+              onClick={() => {
+                const snap = handleRef.current?.exportPNG();
+                if (snap) {
+                  setAiCanvasSnap(snap);
+                  setAiMode("canvas");
+                  setDialog("ai");
+                }
+              }}
+              className="absolute right-3 bottom-16 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-2 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
+              title="手描きの内容を AI が解析して整った間取りに整形します"
+            >
+              ✨ 手描きを AI で整形
+            </button>
+          )}
 
           {/* Mobile sidebar toggles */}
           <button
@@ -389,7 +414,11 @@ export function Editor() {
         <HeatmapDialog onClose={() => setDialog(null)} />
       )}
       {dialog === "ai" && (
-        <AIFloorPlanDialog onClose={() => setDialog(null)} />
+        <AIFloorPlanDialog
+          onClose={() => setDialog(null)}
+          initialMode={aiMode}
+          canvasSnapshot={aiCanvasSnap}
+        />
       )}
       {dialog === "stampPhoto" && photoStampId && (
         <StampPhotoDialog

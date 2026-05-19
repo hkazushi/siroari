@@ -106,7 +106,15 @@ export type Dimension = ElementBase & {
   offset: number; // perpendicular offset in mm
 };
 
-export type AnyElement = Wall | Room | Stamp | TextLabel | Dimension;
+/** 手描きスケッチ（Apple Pencil / 指 / マウスで自由に描いた線） */
+export type Sketch = ElementBase & {
+  type: "sketch";
+  points: Point[]; // path（mm 座標）
+  color: string;
+  thickness: number; // mm
+};
+
+export type AnyElement = Wall | Room | Stamp | TextLabel | Dimension | Sketch;
 
 /** 薬剤使用記録（建築物衛生法・PRTR法対応） */
 export type ChemicalUse = {
@@ -195,7 +203,8 @@ export type ToolType =
   | "stamp"
   | "text"
   | "dimension"
-  | "eraser";
+  | "eraser"
+  | "sketch";
 
 /** よく使う薬剤プリセット（業界一般的なもの） */
 export type ChemicalPreset = {

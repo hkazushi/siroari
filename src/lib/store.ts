@@ -13,6 +13,7 @@ import type {
   Stamp,
   TextLabel,
   Dimension,
+  Sketch,
   ChemicalUse,
   StampPhoto,
 } from "@/types";
@@ -99,6 +100,8 @@ type EditorState = {
   addStamp: (pos: Point, stampType?: StampType, rotation?: number) => void;
   addText: (pos: Point, text: string) => void;
   addDimension: (start: Point, end: Point) => void;
+  addSketch: (points: Point[]) => void;
+  removeAllSketches: () => void;
 
   attachPhotoToStamp: (stampId: string, photo: StampPhoto) => void;
   removePhotoFromStamp: (stampId: string, photoId: string) => void;
@@ -296,6 +299,25 @@ export const useEditor = create<EditorState>((set, get) => ({
       };
       return { ...commitHistory(s), elements: [...s.elements, el] };
     }),
+
+  addSketch: (points) =>
+    set((s) => {
+      if (points.length < 2) return {};
+      const el: Sketch = {
+        id: nanoid(8),
+        type: "sketch",
+        points,
+        color: "#991b1b",
+        thickness: 60,
+      };
+      return { ...commitHistory(s), elements: [...s.elements, el] };
+    }),
+
+  removeAllSketches: () =>
+    set((s) => ({
+      ...commitHistory(s),
+      elements: s.elements.filter((e) => e.type !== "sketch"),
+    })),
 
   attachPhotoToStamp: (stampId, photo) =>
     set((s) => {

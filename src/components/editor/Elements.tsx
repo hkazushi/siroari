@@ -11,6 +11,7 @@ import type {
   Stamp,
   TextLabel,
   Wall,
+  Sketch,
 } from "@/types";
 
 function worldToCanvasPoints(
@@ -219,13 +220,40 @@ function DimensionView({ el }: { el: Dimension }) {
   );
 }
 
+function SketchView({ el }: { el: Sketch }) {
+  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const selected = isSelected(el.id, selectedIds);
+  const flat: number[] = [];
+  for (const p of el.points) flat.push(offset.x + p.x * scale, offset.y + p.y * scale);
+  return (
+    <Line
+      data-element-id={el.id}
+      points={flat}
+      stroke={selected ? "#2563eb" : el.color}
+      strokeWidth={Math.max(1.5, el.thickness * scale)}
+      lineCap="round"
+      lineJoin="round"
+      tension={0.4}
+      hitStrokeWidth={Math.max(14, el.thickness * scale + 8)}
+      opacity={0.85}
+      onPointerDown={(e) => {
+        if (tool !== "select") return;
+        e.cancelBubble = true;
+        if (e.evt.shiftKey) toggleSelect(el.id);
+        else select([el.id]);
+      }}
+    />
+  );
+}
+
 export function ElementsLayer({ elements }: { elements: AnyElement[] }) {
-  // Render rooms first, then walls, then stamps, then text/dim
+  // Render rooms first, then walls, then stamps, then text/dim, then sketches on top
   const rooms = elements.filter((e): e is Room => e.type === "room");
   const walls = elements.filter((e): e is Wall => e.type === "wall");
   const stamps = elements.filter((e): e is Stamp => e.type === "stamp");
   const texts = elements.filter((e): e is TextLabel => e.type === "text");
   const dims = elements.filter((e): e is Dimension => e.type === "dimension");
+  const sketches = elements.filter((e): e is Sketch => e.type === "sketch");
   return (
     <>
       {rooms.map((r) => (
@@ -242,6 +270,9 @@ export function ElementsLayer({ elements }: { elements: AnyElement[] }) {
       ))}
       {texts.map((t) => (
         <TextView key={t.id} el={t} />
+      ))}
+      {sketches.map((s) => (
+        <SketchView key={s.id} el={s} />
       ))}
     </>
   );

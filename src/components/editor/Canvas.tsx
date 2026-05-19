@@ -62,6 +62,7 @@ export function Canvas({
     addStamp,
     addText,
     addDimension,
+    addSketch,
     deleteElement,
     setStageSize,
     setOffset,
@@ -81,6 +82,9 @@ export function Canvas({
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
   // Pinch
   const pinchRef = useRef<{ d: number; center: Point } | null>(null);
+  // Sketch state
+  const [sketching, setSketching] = useState(false);
+  const [sketchPoints, setSketchPoints] = useState<Point[]>([]);
 
   useEffect(() => {
     setStageSize(size.width, size.height);
@@ -219,6 +223,14 @@ export function Canvas({
       }
       return;
     }
+
+    if (tool === "sketch") {
+      // 手描き開始: スナップせず生の座標を使う
+      const raw = toWorld(pos.x, pos.y);
+      setSketching(true);
+      setSketchPoints([raw]);
+      return;
+    }
   };
 
   const onPointerMove = () => {
@@ -239,6 +251,16 @@ export function Canvas({
 
     if (boxSelect) {
       setBoxSelect({ start: boxSelect.start, end: world });
+      return;
+    }
+
+    if (sketching) {
+      const raw = toWorld(pos.x, pos.y);
+      // 簡易間引き: 直前点と十分離れていれば追加
+      const last = sketchPoints[sketchPoints.length - 1];
+      if (!last || Math.hypot(raw.x - last.x, raw.y - last.y) > 40) {
+        setSketchPoints([...sketchPoints, raw]);
+      }
       return;
     }
 
@@ -277,6 +299,13 @@ export function Canvas({
     if (isPanning) {
       setIsPanning(false);
       panLastRef.current = null;
+    }
+    if (sketching) {
+      if (sketchPoints.length >= 2) {
+        addSketch(sketchPoints);
+      }
+      setSketching(false);
+      setSketchPoints([]);
     }
     if (boxSelect) {
       // Compute selection
@@ -456,6 +485,24 @@ export function Canvas({
             }}
           />
         </Group>
+      );
+    }
+    if (tool === "sketch" && sketching && sketchPoints.length >= 2) {
+      const flat: number[] = [];
+      for (const p of sketchPoints) {
+        flat.push(offset.x + p.x * scale, offset.y + p.y * scale);
+      }
+      return (
+        <Line
+          points={flat}
+          stroke="#991b1b"
+          strokeWidth={Math.max(2, 60 * scale)}
+          lineCap="round"
+          lineJoin="round"
+          tension={0.4}
+          opacity={0.85}
+          listening={false}
+        />
       );
     }
     return null;
