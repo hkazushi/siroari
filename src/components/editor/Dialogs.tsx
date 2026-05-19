@@ -5,8 +5,19 @@ import { nanoid } from "nanoid";
 import { useEditor } from "@/lib/store";
 import { CHEMICAL_PRESETS, CHEMICAL_UNITS } from "@/lib/chemicals";
 import { BUILDING_TEMPLATES } from "@/lib/templates";
-import type { ChemicalUse } from "@/types";
-import { Trash2, Plus, Eraser } from "lucide-react";
+import {
+  listCustomTemplates,
+  saveCustomTemplate,
+  deleteCustomTemplate,
+  listCustomChemicals,
+  saveCustomChemical,
+  deleteCustomChemical,
+  type CustomTemplate,
+  type CustomChemical,
+} from "@/lib/db";
+import type { ChemicalUse, AnyElement } from "@/types";
+import { Trash2, Plus, Eraser, Star, Save as SaveIcon, Mic, MicOff } from "lucide-react";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 // ===== Shared shell =====
 export function DialogShell({
@@ -136,14 +147,11 @@ export function VisitMetaDialog({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
         <Field label="所見・備考">
-          <textarea
+          <VoiceTextArea
             value={form.generalNotes}
-            onChange={(e) =>
-              setForm({ ...form, generalNotes: e.target.value })
-            }
+            onChange={(v) => setForm({ ...form, generalNotes: v })}
             rows={3}
-            placeholder="現場で気付いた点、改善提案、注意事項など"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            placeholder="現場で気付いた点、改善提案、注意事項など（音声入力可）"
           />
         </Field>
       </div>
@@ -155,6 +163,8 @@ export function VisitMetaDialog({ onClose }: { onClose: () => void }) {
 // ===== Chemicals Dialog =====
 export function ChemicalsDialog({ onClose }: { onClose: () => void }) {
   const { chemicals, addChemical, updateChemical, removeChemical } = useEditor();
+  const [customs, setCustoms] = useState<CustomChemical[]>([]);
+  const [showSavePreset, setShowSavePreset] = useState(false);
   const [draft, setDraft] = useState<ChemicalUse>({
     id: nanoid(8),
     name: "",
@@ -165,8 +175,35 @@ export function ChemicalsDialog({ onClose }: { onClose: () => void }) {
     location: "",
   });
 
+  const refreshCustoms = async () => {
+    setCustoms(await listCustomChemicals());
+  };
+  useEffect(() => {
+    let c = false;
+    (async () => {
+      const list = await listCustomChemicals();
+      if (!c) setCustoms(list);
+    })();
+    return () => {
+      c = true;
+    };
+  }, []);
+
+  // All presets = custom (first) + built-in
+  const allPresets = [
+    ...customs.map((c) => ({
+      name: c.name,
+      activeIngredient: c.activeIngredient ?? "",
+      unit: c.unit,
+      defaultDilution: c.defaultDilution,
+      target: c.target ?? "",
+      isCustom: true,
+    })),
+    ...CHEMICAL_PRESETS.map((p) => ({ ...p, isCustom: false })),
+  ];
+
   const applyPreset = (presetName: string) => {
-    const p = CHEMICAL_PRESETS.find((x) => x.name === presetName);
+    const p = allPresets.find((x) => x.name === presetName);
     if (!p) return;
     setDraft({
       ...draft,
@@ -175,6 +212,26 @@ export function ChemicalsDialog({ onClose }: { onClose: () => void }) {
       unit: p.unit,
       dilution: p.defaultDilution ?? "",
     });
+  };
+
+  const saveAsCustomPreset = async () => {
+    if (!draft.name.trim()) {
+      alert("薬剤名を入力してください");
+      return;
+    }
+    await saveCustomChemical({
+      id: nanoid(10),
+      name: draft.name.trim(),
+      activeIngredient: draft.activeIngredient?.trim() || undefined,
+      unit: draft.unit,
+      defaultDilution: draft.dilution?.trim() || undefined,
+      target: undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    await refreshCustoms();
+    setShowSavePreset(false);
+    alert("自社プリセットに保存しました");
   };
 
   const addCurrent = () => {
@@ -320,11 +377,23 @@ export function ChemicalsDialog({ onClose }: { onClose: () => void }) {
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">プリセットから選択（任意）</option>
-              {CHEMICAL_PRESETS.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name} — {p.target}
-                </option>
-              ))}
+              {customs.length > 0 && (
+                <optgroup label="⭐ 自社プリセット">
+                  {customs.map((c) => (
+                    <option key={`c-${c.id}`} value={c.name}>
+                      {c.name}
+                      {c.target ? ` — ${c.target}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="標準プリセット">
+                {CHEMICAL_PRESETS.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} — {p.target}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -393,12 +462,60 @@ export function ChemicalsDialog({ onClose }: { onClose: () => void }) {
               className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             />
           </Field>
-          <button
-            onClick={addCurrent}
-            className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#1e3a5f] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#152a47]"
-          >
-            <Plus size={14} /> リストに追加
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              onClick={addCurrent}
+              className="inline-flex items-center gap-1 rounded-md bg-[#1e3a5f] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#152a47]"
+            >
+              <Plus size={14} /> リストに追加
+            </button>
+            <button
+              onClick={saveAsCustomPreset}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#1e3a5f] hover:bg-slate-50"
+              title="この内容を自社プリセットに保存し、次回から呼び出せるようにします"
+            >
+              <Star size={12} /> プリセットに登録
+            </button>
+            {customs.length > 0 && (
+              <button
+                onClick={() => setShowSavePreset((v) => !v)}
+                className="ml-auto text-[10px] text-slate-500 underline-offset-2 hover:underline"
+              >
+                {showSavePreset ? "プリセット管理を閉じる" : "プリセット管理"}
+              </button>
+            )}
+          </div>
+          {showSavePreset && customs.length > 0 && (
+            <div className="mt-2 rounded-md border border-slate-200 p-2">
+              <div className="mb-1 text-[10px] font-bold text-slate-500">
+                登録済み自社プリセット
+              </div>
+              <div className="space-y-1">
+                {customs.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between rounded bg-slate-50 px-2 py-1 text-[11px]"
+                  >
+                    <span>
+                      {c.name}
+                      {c.activeIngredient ? `（${c.activeIngredient}）` : ""}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`「${c.name}」を削除しますか？`)) {
+                          await deleteCustomChemical(c.id);
+                          await refreshCustoms();
+                        }
+                      }}
+                      className="rounded p-1 text-red-500 hover:bg-red-50"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <DialogFooter onClose={onClose} onSubmit={onClose} submitLabel="完了" />
@@ -412,37 +529,213 @@ export function TemplatesDialog({
   onApply,
 }: {
   onClose: () => void;
-  onApply: (id: string) => void;
+  onApply: (els: AnyElement[]) => void;
 }) {
+  const [customs, setCustoms] = useState<CustomTemplate[]>([]);
+  const [showSave, setShowSave] = useState(false);
+  const elements = useEditor((s) => s.elements);
+
+  const refresh = async () => {
+    setCustoms(await listCustomTemplates());
+  };
+  useEffect(() => {
+    let c = false;
+    (async () => {
+      const list = await listCustomTemplates();
+      if (!c) setCustoms(list);
+    })();
+    return () => {
+      c = true;
+    };
+  }, []);
+
   return (
     <DialogShell title="建物テンプレートを適用" onClose={onClose} size="lg">
-      <div className="space-y-2 p-4">
+      <div className="space-y-3 p-4">
         <div className="text-[11px] text-slate-500">
-          選んだテンプレートが現在の図に追加されます。空のキャンバスから始めたいときは「白紙」を選んでください。
+          選んだテンプレートが現在の図に追加されます。空から始めたいときは「白紙」を選んでください。
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {BUILDING_TEMPLATES.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                onApply(t.id);
-                onClose();
-              }}
-              className="group rounded-lg border-2 border-slate-200 bg-white p-4 text-left hover:border-[#991b1b] hover:bg-red-50/30"
-            >
-              <div className="text-[10px] font-bold text-[#991b1b]">
-                {t.category}
-              </div>
-              <div className="mt-1 font-bold text-[#1e3a5f]">{t.name}</div>
-              <div className="mt-1 text-[11px] text-slate-600">
-                {t.description}
-              </div>
-            </button>
-          ))}
+
+        {/* Custom templates section */}
+        {customs.length > 0 && (
+          <div>
+            <div className="mb-1 flex items-center gap-1 text-[11px] font-bold text-[#991b1b]">
+              <Star size={12} /> 自社テンプレート
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {customs.map((t) => (
+                <div
+                  key={t.id}
+                  className="group relative rounded-lg border-2 border-[#1e3a5f] bg-white p-4 text-left hover:bg-blue-50/30"
+                >
+                  <button
+                    className="block w-full text-left"
+                    onClick={() => {
+                      onApply(t.elements);
+                      onClose();
+                    }}
+                  >
+                    <div className="text-[10px] font-bold text-[#1e3a5f]">
+                      {t.category}
+                    </div>
+                    <div className="mt-1 font-bold text-[#1e3a5f]">{t.name}</div>
+                    {t.description && (
+                      <div className="mt-1 text-[11px] text-slate-600">
+                        {t.description}
+                      </div>
+                    )}
+                    <div className="mt-1 text-[10px] text-slate-400">
+                      {t.elements.length} 要素
+                    </div>
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (confirm(`「${t.name}」を削除しますか？`)) {
+                        await deleteCustomTemplate(t.id);
+                        await refresh();
+                      }
+                    }}
+                    className="absolute right-1 top-1 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Built-in templates */}
+        <div>
+          <div className="mb-1 text-[11px] font-bold text-slate-500">
+            標準テンプレート
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {BUILDING_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  onApply(t.buildElements());
+                  onClose();
+                }}
+                className="group rounded-lg border-2 border-slate-200 bg-white p-4 text-left hover:border-[#991b1b] hover:bg-red-50/30"
+              >
+                <div className="text-[10px] font-bold text-[#991b1b]">
+                  {t.category}
+                </div>
+                <div className="mt-1 font-bold text-[#1e3a5f]">{t.name}</div>
+                <div className="mt-1 text-[11px] text-slate-600">
+                  {t.description}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Save current as template */}
+        {elements.length > 0 && (
+          <div className="rounded-lg border-2 border-dashed border-slate-300 p-3">
+            {showSave ? (
+              <SaveTemplateForm
+                onCancel={() => setShowSave(false)}
+                onSaved={async () => {
+                  setShowSave(false);
+                  await refresh();
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setShowSave(true)}
+                className="flex w-full items-center justify-center gap-1 rounded-md bg-[#1e3a5f] px-3 py-2 text-sm font-bold text-white hover:bg-[#152a47]"
+              >
+                <SaveIcon size={14} /> 現在のマップを自社テンプレに保存
+              </button>
+            )}
+          </div>
+        )}
       </div>
       <DialogFooter onClose={onClose} onSubmit={onClose} submitLabel="閉じる" />
     </DialogShell>
+  );
+}
+
+function SaveTemplateForm({
+  onCancel,
+  onSaved,
+}: {
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const elements = useEditor((s) => s.elements);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("住宅");
+  const [description, setDescription] = useState("");
+
+  const submit = async () => {
+    if (!name.trim()) {
+      alert("テンプレ名を入力してください");
+      return;
+    }
+    await saveCustomTemplate({
+      id: nanoid(10),
+      name: name.trim(),
+      category,
+      description: description.trim() || undefined,
+      elements,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    onSaved();
+  };
+
+  return (
+    <div className="space-y-2">
+      <Field label="テンプレ名 *">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="例: ○○ビル定型 / 中華料理店パターン"
+          className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+        />
+      </Field>
+      <Field label="カテゴリ">
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+        >
+          <option value="住宅">住宅</option>
+          <option value="店舗">店舗</option>
+          <option value="オフィス">オフィス</option>
+          <option value="倉庫">倉庫</option>
+          <option value="工場">工場</option>
+          <option value="その他">その他</option>
+        </select>
+      </Field>
+      <Field label="説明">
+        <input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="どんな現場用か（任意）"
+          className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+        />
+      </Field>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold"
+        >
+          キャンセル
+        </button>
+        <button
+          onClick={submit}
+          className="rounded-md bg-[#991b1b] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#7f1d1d]"
+        >
+          保存（{elements.length} 要素）
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -661,6 +954,60 @@ export function StampPhotoDialog({
       </div>
       <DialogFooter onClose={onClose} onSubmit={onClose} submitLabel="閉じる" />
     </DialogShell>
+  );
+}
+
+// ===== Voice-enabled TextArea =====
+export function VoiceTextArea({
+  value,
+  onChange,
+  rows = 3,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  const accumulatedRef = useRef(value);
+  useEffect(() => {
+    accumulatedRef.current = value;
+  }, [value]);
+  const voice = useVoiceInput({
+    lang: "ja-JP",
+    onFinal: (t) => {
+      const next = (accumulatedRef.current + (accumulatedRef.current ? " " : "") + t).trim();
+      accumulatedRef.current = next;
+      onChange(next);
+    },
+  });
+  return (
+    <div className="relative">
+      <textarea
+        value={value}
+        onChange={(e) => {
+          accumulatedRef.current = e.target.value;
+          onChange(e.target.value);
+        }}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 pr-10 text-sm"
+      />
+      {voice.supported && (
+        <button
+          type="button"
+          onClick={() => (voice.listening ? voice.stop() : voice.start())}
+          title={voice.listening ? "停止" : "音声入力（タップして話す）"}
+          className={`absolute right-2 top-2 rounded-full p-1.5 ${
+            voice.listening
+              ? "animate-pulse bg-red-500 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          {voice.listening ? <MicOff size={14} /> : <Mic size={14} />}
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -11,6 +11,8 @@ import {
   Ruler,
   ArrowRight,
   Users,
+  Calendar,
+  Settings,
 } from "lucide-react";
 
 export default function Home() {
@@ -50,11 +52,19 @@ function Header() {
             顧客台帳
           </Link>
           <Link
-            href="/projects"
+            href="/calendar"
             className="hidden rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex"
+            title="訪問スケジュール"
           >
-            <FolderOpen size={16} className="mr-1.5" />
-            全現場
+            <Calendar size={16} className="mr-1.5" />
+            予定
+          </Link>
+          <Link
+            href="/settings"
+            className="hidden rounded-md border border-slate-300 px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex"
+            title="設定"
+          >
+            <Settings size={16} />
           </Link>
           <Link
             href="/editor"

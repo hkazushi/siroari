@@ -133,15 +133,7 @@ export function Editor() {
     });
   }, [stageSize.width, stageSize.height, paperSize.width, paperSize.height, setScale, setOffset]);
 
-  const applyTemplateId = useCallback(
-    (id: string) => {
-      const t = BUILDING_TEMPLATES.find((x) => x.id === id);
-      if (!t) return;
-      const els = t.buildElements();
-      applyTemplate(els);
-    },
-    [applyTemplate],
-  );
+  void BUILDING_TEMPLATES; // (TemplatesDialog handles built-ins internally)
 
   // Expose store on window for testing/debug
   useEffect(() => {
@@ -307,7 +299,7 @@ export function Editor() {
       {dialog === "templates" && (
         <TemplatesDialog
           onClose={() => setDialog(null)}
-          onApply={applyTemplateId}
+          onApply={(els) => applyTemplate(els)}
         />
       )}
       {dialog === "customerSign" && (

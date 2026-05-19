@@ -4,6 +4,16 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "東山メンテナンス | 害虫駆除 現場マップ",
   description: "東山メンテナンス専用の現場記録アプリ。見取り図に害虫発見ポイント・毒餌・薬剤散布範囲を記録し、報告書を PDF 出力できます。",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "現場マップ",
+  },
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -11,7 +21,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#1e293b",
+  themeColor: "#1e3a5f",
 };
 
 export default function RootLayout({

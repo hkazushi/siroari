@@ -1,0 +1,26 @@
+{
+  "name": "東山メンテナンス 害虫駆除 現場マップ",
+  "short_name": "現場マップ",
+  "description": "害虫駆除現場の見取り図と施工記録を1台で完結",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a5f",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "lang": "ja",
+  "categories": ["business", "productivity"]
+}
