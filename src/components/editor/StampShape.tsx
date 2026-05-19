@@ -345,69 +345,69 @@ export function StampGraphic({ stamp }: { stamp: Stamp }) {
         </Group>
       );
     }
-    // ===== 害虫（汎用バッジ） =====
+    // ===== 害虫（絵文字アイコン） =====
     case "pestMosquito":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#854d0e" text="蚊" textColor="#78350f" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#854d0e" emoji="🦟" />;
     case "pestBee":
-      return <PestBadge w={w} h={h} bg="#fef9c3" border="#a16207" text="蜂" textColor="#713f12" stripes />;
+      return <EmojiStamp w={w} h={h} bg="#fef9c3" border="#a16207" emoji="🐝" />;
     case "pestSpider":
-      return <PestBadge w={w} h={h} bg="#f3e8ff" border="#6b21a8" text="蜘" textColor="#581c87" />;
+      return <EmojiStamp w={w} h={h} bg="#f3e8ff" border="#6b21a8" emoji="🕷️" />;
     case "pestCentipede":
-      return <PestBadge w={w} h={h} bg="#fed7aa" border="#9a3412" text="百" textColor="#7c2d12" />;
+      return <EmojiStamp w={w} h={h} bg="#fed7aa" border="#9a3412" emoji="🐛" />;
     case "pestMillipede":
-      return <PestBadge w={w} h={h} bg="#e7e5e4" border="#57534e" text="馬" textColor="#292524" />;
+      return <EmojiStamp w={w} h={h} bg="#e7e5e4" border="#57534e" emoji="🐛" />;
     case "pestHouseCentipede":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#a16207" text="蚰" textColor="#713f12" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#a16207" emoji="🐛" />;
     case "pestBedbug":
-      return <PestBadge w={w} h={h} bg="#fee2e2" border="#9f1239" text="床" textColor="#881337" />;
+      return <EmojiStamp w={w} h={h} bg="#fee2e2" border="#9f1239" emoji="🪳" />;
     case "pestMite":
-      return <PestBadge w={w} h={h} bg="#fef2f2" border="#7f1d1d" text="ダ" textColor="#7f1d1d" />;
+      return <EmojiStamp w={w} h={h} bg="#fef2f2" border="#7f1d1d" emoji="🦠" />;
     case "pestFlea":
-      return <PestBadge w={w} h={h} bg="#fed7aa" border="#7c2d12" text="蚤" textColor="#7c2d12" />;
+      return <EmojiStamp w={w} h={h} bg="#fed7aa" border="#7c2d12" emoji="🦗" />;
     case "pestSilverfish":
-      return <PestBadge w={w} h={h} bg="#e0f2fe" border="#0c4a6e" text="紙" textColor="#0c4a6e" />;
+      return <EmojiStamp w={w} h={h} bg="#e0f2fe" border="#0c4a6e" emoji="🐟" />;
     case "pestStinkbug":
-      return <PestBadge w={w} h={h} bg="#dcfce7" border="#14532d" text="亀" textColor="#14532d" />;
+      return <EmojiStamp w={w} h={h} bg="#dcfce7" border="#14532d" emoji="🪲" />;
     case "pestMoth":
-      return <PestBadge w={w} h={h} bg="#fdf4ff" border="#86198f" text="蛾" textColor="#701a75" />;
+      return <EmojiStamp w={w} h={h} bg="#fdf4ff" border="#86198f" emoji="🦋" />;
     case "pestDrainFly":
-      return <PestBadge w={w} h={h} bg="#cffafe" border="#155e75" text="蝶" textColor="#164e63" />;
+      return <EmojiStamp w={w} h={h} bg="#cffafe" border="#155e75" emoji="🪰" />;
     case "pestEarwig":
-      return <PestBadge w={w} h={h} bg="#fde68a" border="#854d0e" text="鋏" textColor="#78350f" />;
+      return <EmojiStamp w={w} h={h} bg="#fde68a" border="#854d0e" emoji="🦂" />;
     case "pestWeevil":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#92400e" text="穀" textColor="#78350f" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#92400e" emoji="🪲" />;
 
-    // ===== 害獣（茶系バッジ + 動物名漢字） =====
+    // ===== 害獣（絵文字） =====
     case "pestRat":
-      return <PestBadge w={w} h={h} bg="#fafaf9" border="#44403c" text="鼠" textColor="#1c1917" />;
+      return <EmojiStamp w={w} h={h} bg="#fafaf9" border="#44403c" emoji="🐀" />;
     case "pestMouse":
-      return <PestBadge w={w} h={h} bg="#fafafa" border="#6b7280" text="鼠" textColor="#374151" />;
+      return <EmojiStamp w={w} h={h} bg="#fafafa" border="#6b7280" emoji="🐁" />;
     case "pestWeasel":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#92400e" text="鼬" textColor="#7c2d12" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#92400e" emoji="🦦" />;
     case "pestCivet":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#78350f" text="白" textColor="#451a03" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#78350f" emoji="🦝" />;
     case "pestRaccoon":
-      return <PestBadge w={w} h={h} bg="#e7e5e4" border="#44403c" text="洗" textColor="#1c1917" />;
+      return <EmojiStamp w={w} h={h} bg="#e7e5e4" border="#44403c" emoji="🦝" />;
     case "pestRaccoonDog":
-      return <PestBadge w={w} h={h} bg="#fed7aa" border="#7c2d12" text="狸" textColor="#451a03" />;
+      return <EmojiStamp w={w} h={h} bg="#fed7aa" border="#7c2d12" emoji="🦊" />;
     case "pestBat":
-      return <PestBadge w={w} h={h} bg="#1f2937" border="#000" text="蝙" textColor="#fef3c7" />;
+      return <EmojiStamp w={w} h={h} bg="#1f2937" border="#000" emoji="🦇" />;
     case "pestSnake":
-      return <PestBadge w={w} h={h} bg="#dcfce7" border="#14532d" text="蛇" textColor="#14532d" />;
+      return <EmojiStamp w={w} h={h} bg="#dcfce7" border="#14532d" emoji="🐍" />;
     case "pestStrayCat":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#854d0e" text="猫" textColor="#78350f" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#854d0e" emoji="🐈" />;
 
-    // ===== 害鳥（青空系） =====
+    // ===== 害鳥（絵文字） =====
     case "pestPigeon":
-      return <PestBadge w={w} h={h} bg="#e0e7ff" border="#1e40af" text="鳩" textColor="#1e3a8a" />;
+      return <EmojiStamp w={w} h={h} bg="#e0e7ff" border="#1e40af" emoji="🕊️" />;
     case "pestSparrow":
-      return <PestBadge w={w} h={h} bg="#fef3c7" border="#a16207" text="雀" textColor="#713f12" />;
+      return <EmojiStamp w={w} h={h} bg="#fef3c7" border="#a16207" emoji="🐦" />;
     case "pestCrow":
-      return <PestBadge w={w} h={h} bg="#1e293b" border="#000" text="烏" textColor="#fde68a" />;
+      return <EmojiStamp w={w} h={h} bg="#1e293b" border="#000" emoji="🐦‍⬛" />;
     case "pestStarling":
-      return <PestBadge w={w} h={h} bg="#e0e7ff" border="#3730a3" text="椋" textColor="#312e81" />;
+      return <EmojiStamp w={w} h={h} bg="#e0e7ff" border="#3730a3" emoji="🐦" />;
     case "pestSwallow":
-      return <PestBadge w={w} h={h} bg="#dbeafe" border="#1e40af" text="燕" textColor="#1e3a8a" />;
+      return <EmojiStamp w={w} h={h} bg="#dbeafe" border="#1e40af" emoji="🐦" />;
 
     // ===== 追加施工 =====
     case "fumigation": {
@@ -420,9 +420,9 @@ export function StampGraphic({ stamp }: { stamp: Stamp }) {
       );
     }
     case "uvTrap":
-      return <PestBadge w={w} h={h} bg="#ede9fe" border="#6d28d9" text="UV" textColor="#5b21b6" />;
+      return <EmojiStamp w={w} h={h} bg="#ede9fe" border="#6d28d9" emoji="💡" />;
     case "ultrasonic":
-      return <PestBadge w={w} h={h} bg="#dbeafe" border="#1e40af" text="音" textColor="#1e3a8a" />;
+      return <EmojiStamp w={w} h={h} bg="#dbeafe" border="#1e40af" emoji="🔊" />;
 
     default:
       return <Rect x={-hx} y={-hy} width={w} height={h} stroke={stroke} strokeWidth={sw} fillEnabled={false} />;
@@ -430,59 +430,35 @@ export function StampGraphic({ stamp }: { stamp: Stamp }) {
 }
 
 /**
- * 共通バッジ（円 + 太い枠 + 中央の漢字 1〜2 文字）。
- * 害虫害獣の新規スタンプ用。
+ * 共通バッジ（色付き円 + 中央に絵文字 1 文字）。
+ * 害虫害獣の新規スタンプを直感的に判別できるようにする。
  */
-function PestBadge({
+function EmojiStamp({
   w,
   h,
   bg,
   border,
-  text,
-  textColor,
-  stripes,
+  emoji,
 }: {
   w: number;
   h: number;
   bg: string;
   border: string;
-  text: string;
-  textColor: string;
-  stripes?: boolean;
+  emoji: string;
 }) {
   const r = Math.min(w, h) / 2;
   const sw = 30;
-  const charLen = text.length;
-  const fontSize = charLen > 1 ? r * 0.7 : r * 1.1;
+  const fontSize = r * 1.45;
   return (
     <Group>
       <Circle x={0} y={0} radius={r} fill={bg} stroke={border} strokeWidth={sw} />
-      {stripes && (
-        <>
-          <Line
-            points={[-r * 0.7, -r * 0.4, r * 0.7, -r * 0.4]}
-            stroke={border}
-            strokeWidth={sw / 1.5}
-          />
-          <Line
-            points={[-r * 0.7, 0, r * 0.7, 0]}
-            stroke={border}
-            strokeWidth={sw / 1.5}
-          />
-          <Line
-            points={[-r * 0.7, r * 0.4, r * 0.7, r * 0.4]}
-            stroke={border}
-            strokeWidth={sw / 1.5}
-          />
-        </>
-      )}
       <Text
-        text={text}
-        x={-fontSize * 0.5 * charLen}
-        y={-fontSize * 0.55}
+        text={emoji}
+        x={-fontSize * 0.55}
+        y={-fontSize * 0.6}
         fontSize={fontSize}
-        fontStyle="bold"
-        fill={textColor}
+        // 絵文字は OS のカラーフォントを使用
+        fontFamily="'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', system-ui"
       />
     </Group>
   );
