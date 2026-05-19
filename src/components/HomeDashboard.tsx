@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Building2,
   Home as HomeIcon,
+  Sparkles,
 } from "lucide-react";
 
 /** ランディングのダッシュボード部分（統計 + 最近の現場 + クイックアクション） */
@@ -250,13 +251,20 @@ function Dashboard({
         )}
 
         {/* Quick actions */}
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Link
             href="/editor?new=1"
-            className="inline-flex flex-col items-center gap-1 rounded-lg bg-[#991b1b] px-4 py-3 text-sm font-bold text-white hover:bg-[#7f1d1d]"
+            className="inline-flex flex-col items-center gap-1 rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 px-4 py-3 text-sm font-bold text-white shadow hover:from-amber-600 hover:to-rose-600"
           >
-            <MapPin size={20} />
-            <span>新規マップ</span>
+            <Sparkles size={20} />
+            <span>AI マップ</span>
+          </Link>
+          <Link
+            href="/assistant"
+            className="inline-flex flex-col items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100"
+          >
+            <Sparkles size={20} />
+            <span>AI 相談</span>
           </Link>
           <Link
             href="/customers"

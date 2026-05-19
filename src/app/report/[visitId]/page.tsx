@@ -15,7 +15,9 @@ import type { Visit, Customer, Site, Stamp } from "@/types";
 import { stampDefOf } from "@/lib/stamps";
 import { formatArea, polygonArea } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
-import { Share2, Copy, CheckCircle2 } from "lucide-react";
+import { Share2, Copy, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
+import { saveVisit } from "@/lib/db";
+import { cloudSaveVisit } from "@/lib/sync";
 
 export default function ReportPage() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -354,15 +356,27 @@ export default function ReportPage() {
           )}
         </section>
 
-        {/* Notes */}
-        {visit.generalNotes && (
-          <section className="mt-4 break-inside-avoid">
+        {/* Notes (with AI generate button) */}
+        <section className="mt-4 break-inside-avoid">
+          <div className="flex items-center justify-between print:block">
             <SectionTitle>5. 所見・備考</SectionTitle>
-            <div className="whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px]">
+            <AIReportButton
+              visit={visit}
+              customer={customer}
+              site={site}
+              onGenerated={(text) => setVisit({ ...visit, generalNotes: text })}
+            />
+          </div>
+          {visit.generalNotes ? (
+            <div className="whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-6">
               {visit.generalNotes}
             </div>
-          </section>
-        )}
+          ) : (
+            <div className="rounded border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-center text-[11px] text-slate-400 print:hidden">
+              所見・備考は未入力です。右上の「AI で生成」をタップで自動作成できます。
+            </div>
+          )}
+        </section>
 
         {/* Photos */}
         <PhotosSection visit={visit} />
@@ -410,6 +424,63 @@ export default function ReportPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function AIReportButton({
+  visit,
+  customer,
+  site,
+  onGenerated,
+}: {
+  visit: Visit;
+  customer: Customer | null;
+  site: Site | null;
+  onGenerated: (text: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    if (
+      visit.generalNotes &&
+      !confirm(
+        "既存の所見・備考を AI 生成で上書きします。よろしいですか？",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/ai/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visit, customer, site }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "生成失敗");
+      const text = data.text as string;
+      onGenerated(text);
+      // 保存も自動で
+      const updated = { ...visit, generalNotes: text };
+      await saveVisit(updated);
+      await cloudSaveVisit(updated);
+    } catch (e) {
+      alert("AI 生成失敗: " + (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={run}
+      disabled={busy}
+      className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-amber-500 to-rose-500 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:from-amber-600 hover:to-rose-600 disabled:opacity-60 print:hidden"
+      title="施工データから AI が報告書文章を自動生成"
+    >
+      {busy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+      {busy ? "生成中..." : "AI で生成"}
+    </button>
   );
 }
 

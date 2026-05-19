@@ -20,6 +20,7 @@ import {
   StampPhotoDialog,
 } from "./Dialogs";
 import { HeatmapDialog } from "./HeatmapDialog";
+import { AIFloorPlanDialog } from "./AIFloorPlanDialog";
 import { saveVisit, loadVisit, listVisits, deleteVisit } from "@/lib/db";
 import { cloudSaveVisit } from "@/lib/sync";
 import { BUILDING_TEMPLATES } from "@/lib/templates";
@@ -46,7 +47,8 @@ type DialogKind =
   | "visitMeta"
   | "heatmap"
   | "stampPhoto"
-  | "openVisit";
+  | "openVisit"
+  | "ai";
 
 export function Editor() {
   const router = useRouter();
@@ -278,6 +280,7 @@ export function Editor() {
         onTechnicianSign={() => setDialog("technicianSign")}
         onVisitMeta={() => setDialog("visitMeta")}
         onHeatmap={() => setDialog("heatmap")}
+        onAI={() => setDialog("ai")}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -325,17 +328,20 @@ export function Editor() {
 
       {/* Empty-state hint（モバイルでサイドバーと重ならない位置） */}
       {elements.length === 0 && !sidebarOpen && !propsOpen && (
-        <button
-          onClick={() => setDialog("templates")}
-          className="pointer-events-auto absolute left-1/2 bottom-20 z-10 -translate-x-1/2 rounded-full border-2 border-dashed border-slate-300 bg-white px-4 py-2 text-center text-xs text-slate-600 shadow-lg hover:border-[#991b1b] hover:bg-red-50 sm:bottom-auto sm:top-4 sm:px-5 sm:py-2.5 sm:text-sm"
-        >
-          <span className="font-bold text-[#1e3a5f]">
-            🏠 建物テンプレートから始める
-          </span>
-          <span className="ml-2 hidden text-[12px] text-slate-500 sm:inline">
-            ・左ツールで自由描画
-          </span>
-        </button>
+        <div className="pointer-events-auto absolute left-1/2 bottom-20 z-10 flex -translate-x-1/2 flex-col gap-2 sm:bottom-auto sm:top-4">
+          <button
+            onClick={() => setDialog("ai")}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
+          >
+            ✨ AI に音声で間取りを描かせる
+          </button>
+          <button
+            onClick={() => setDialog("templates")}
+            className="rounded-full border-2 border-dashed border-slate-300 bg-white px-4 py-1.5 text-xs text-slate-600 hover:border-[#991b1b] hover:bg-red-50"
+          >
+            🏠 テンプレートから始める / 自由描画
+          </button>
+        </div>
       )}
 
       {/* Dialogs */}
@@ -381,6 +387,9 @@ export function Editor() {
       )}
       {dialog === "heatmap" && (
         <HeatmapDialog onClose={() => setDialog(null)} />
+      )}
+      {dialog === "ai" && (
+        <AIFloorPlanDialog onClose={() => setDialog(null)} />
       )}
       {dialog === "stampPhoto" && photoStampId && (
         <StampPhotoDialog

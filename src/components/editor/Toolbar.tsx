@@ -27,6 +27,7 @@ import {
   UserCheck,
   Flame,
   Info,
+  Sparkles,
 } from "lucide-react";
 import { useEditor } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ export type ToolbarActions = {
   onTechnicianSign: () => void;
   onVisitMeta: () => void;
   onHeatmap: () => void;
+  onAI: () => void;
 };
 
 export function Toolbar(props: ToolbarActions) {
@@ -78,6 +80,7 @@ export function Toolbar(props: ToolbarActions) {
     onTechnicianSign,
     onVisitMeta,
     onHeatmap,
+    onAI,
   } = props;
 
   const {
@@ -117,6 +120,14 @@ export function Toolbar(props: ToolbarActions) {
           onChange={(e) => setName(e.target.value)}
         />
         <div className="ml-auto hidden items-center gap-1 sm:flex">
+          <button
+            onClick={onAI}
+            className="flex h-9 items-center gap-1 rounded bg-gradient-to-r from-amber-500 to-rose-500 px-3 text-xs font-bold text-white shadow-sm hover:from-amber-600 hover:to-rose-600"
+            title="AI で音声/テキストから間取り作成"
+          >
+            <Sparkles size={16} />
+            <span>AI 間取り</span>
+          </button>
           <IconBtn label="開く" icon={FolderOpen} onClick={onOpen} />
           <IconBtn label="保存" icon={Save} onClick={onSave} />
           <button
@@ -138,6 +149,12 @@ export function Toolbar(props: ToolbarActions) {
 
       {menuOpen && (
         <div className="grid grid-cols-2 gap-1 sm:hidden">
+          <button
+            onClick={onAI}
+            className="col-span-2 flex h-9 items-center justify-center gap-1 rounded bg-gradient-to-r from-amber-500 to-rose-500 px-2 text-xs font-bold text-white"
+          >
+            <Sparkles size={14} /> AI で間取り作成
+          </button>
           <IconBtn label="開く" icon={FolderOpen} onClick={onOpen} />
           <IconBtn label="保存" icon={Save} onClick={onSave} />
           <IconBtn label="報告書" icon={FileText} onClick={onReport} />

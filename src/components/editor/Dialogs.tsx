@@ -16,7 +16,7 @@ import {
   type CustomChemical,
 } from "@/lib/db";
 import type { ChemicalUse, AnyElement, StampPhoto, PhotoKind } from "@/types";
-import { Trash2, Plus, Eraser, Star, Save as SaveIcon } from "lucide-react";
+import { Trash2, Plus, Eraser, Star, Save as SaveIcon, Sparkles, Loader2 } from "lucide-react";
 import { processAndUploadPhoto, photoSrc } from "@/lib/photoStorage";
 
 // ===== Shared shell =====
@@ -1010,37 +1010,132 @@ function PhotoGroup({
         {title} ({photos.length})
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {photos.map((p) => {
-          const src = photoSrc(p);
-          return (
-            <div key={p.id} className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={src}
-                alt="現場写真"
-                className="aspect-square w-full rounded border border-slate-200 object-cover"
-              />
-              <select
-                value={p.kind ?? "other"}
-                onChange={(e) =>
-                  onKindChange(p.id, e.target.value as PhotoKind)
-                }
-                className="absolute bottom-1 left-1 rounded bg-white/90 px-1 py-0.5 text-[9px] shadow"
-              >
-                <option value="before">🔴 施工前</option>
-                <option value="after">🟢 施工後</option>
-                <option value="other">📷 その他</option>
-              </select>
-              <button
-                onClick={() => onRemove(p.id)}
-                className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 shadow hover:bg-white"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          );
-        })}
+        {photos.map((p) => (
+          <PhotoCard
+            key={p.id}
+            photo={p}
+            onRemove={() => onRemove(p.id)}
+            onKindChange={(k) => onKindChange(p.id, k)}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function PhotoCard({
+  photo,
+  onRemove,
+  onKindChange,
+}: {
+  photo: StampPhoto;
+  onRemove: () => void;
+  onKindChange: (k: PhotoKind) => void;
+}) {
+  const src = photoSrc(photo);
+  const [identifying, setIdentifying] = useState(false);
+  const [result, setResult] = useState<{
+    identified: boolean;
+    species?: string;
+    confidence?: string;
+    description?: string;
+    recommendations?: string[];
+  } | null>(null);
+
+  const identify = async () => {
+    if (!src) return;
+    setIdentifying(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/ai/identify-pest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: photo.data,
+          imageUrl: photo.url,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "判別失敗");
+      setResult(data);
+    } catch (e) {
+      setResult({
+        identified: false,
+        description: "❌ " + (e as Error).message,
+      });
+    } finally {
+      setIdentifying(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="現場写真"
+        className="aspect-square w-full rounded border border-slate-200 object-cover"
+      />
+      <select
+        value={photo.kind ?? "other"}
+        onChange={(e) => onKindChange(e.target.value as PhotoKind)}
+        className="absolute bottom-1 left-1 rounded bg-white/90 px-1 py-0.5 text-[9px] shadow"
+      >
+        <option value="before">🔴 施工前</option>
+        <option value="after">🟢 施工後</option>
+        <option value="other">📷 その他</option>
+      </select>
+      <button
+        onClick={onRemove}
+        className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 shadow hover:bg-white"
+      >
+        <Trash2 size={12} />
+      </button>
+      <button
+        onClick={identify}
+        disabled={identifying}
+        className="absolute bottom-1 right-1 inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-2 py-0.5 text-[9px] font-bold text-white shadow hover:from-amber-600 hover:to-rose-600 disabled:opacity-60"
+        title="AI で害虫判別"
+      >
+        {identifying ? (
+          <Loader2 size={9} className="animate-spin" />
+        ) : (
+          <Sparkles size={9} />
+        )}
+        AI 判別
+      </button>
+      {result && (
+        <div className="mt-1 rounded border border-emerald-300 bg-emerald-50 p-1.5 text-[10px]">
+          {result.identified ? (
+            <>
+              <div className="font-bold text-emerald-800">
+                {result.species}
+                {result.confidence && (
+                  <span className="ml-1 text-[9px]">
+                    （確信度 {result.confidence}）
+                  </span>
+                )}
+              </div>
+              {result.description && (
+                <div className="mt-0.5 text-emerald-700">
+                  {result.description}
+                </div>
+              )}
+              {result.recommendations && result.recommendations.length > 0 && (
+                <ul className="ml-3 mt-1 list-disc text-emerald-700">
+                  {result.recommendations.slice(0, 3).map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <div className="text-slate-600">
+              {result.description ?? "害虫は識別できませんでした"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
