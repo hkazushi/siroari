@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 env:
-  VERCEL_ORG_ID: team_Avuiby60fpaJYGbzORt9d1sA
-  VERCEL_PROJECT_ID: prj_tqRqI45nm9MtVdt9bpRk1sWhqH8B
+  VERCEL_ORG_ID: team_mAqryK4Fb34exriMSv0NnDBG
+  VERCEL_PROJECT_ID: prj_cN2tnm6T8DMo223DkBPkYGFNCcSY
 
 jobs:
   deploy:
