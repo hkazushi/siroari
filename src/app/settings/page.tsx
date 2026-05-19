@@ -13,13 +13,20 @@ import {
   type CustomTemplate,
   type CustomChemical,
 } from "@/lib/db";
+import { isCloudConfigured } from "@/lib/supabase";
+import { syncBoth, pushAllToCloud, pullAllFromCloud } from "@/lib/sync";
 import {
   ArrowLeft,
   Download,
   Upload,
   Trash2,
   Cloud,
+  CloudOff,
+  RefreshCw,
   AlertTriangle,
+  CheckCircle2,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -27,15 +34,22 @@ export default function SettingsPage() {
   const [chemicals, setChemicals] = useState<CustomChemical[]>([]);
   const [importing, setImporting] = useState(false);
   const [exportSize, setExportSize] = useState<string>("—");
+  const [cloudConfigured, setCloudConfigured] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<{
+    at: number;
+    msg: string;
+    error?: boolean;
+  } | null>(null);
 
   const refresh = async () => {
-    const [t, c] = await Promise.all([
+    const [t, c, data] = await Promise.all([
       listCustomTemplates(),
       listCustomChemicals(),
+      exportAllData(),
     ]);
     setTemplates(t);
     setChemicals(c);
-    const data = await exportAllData();
     const json = JSON.stringify(data);
     const kb = (new Blob([json]).size / 1024).toFixed(1);
     setExportSize(`${kb} KB`);
@@ -55,6 +69,12 @@ export default function SettingsPage() {
       const json = JSON.stringify(data);
       const kb = (new Blob([json]).size / 1024).toFixed(1);
       setExportSize(`${kb} KB`);
+      setCloudConfigured(isCloudConfigured());
+      try {
+        const ls = localStorage.getItem("lastSyncAt");
+        if (ls)
+          setLastSync({ at: Number(ls), msg: "前回同期: 成功" });
+      } catch {}
     })();
     return () => {
       cancelled = true;
@@ -97,6 +117,77 @@ export default function SettingsPage() {
     }
   };
 
+  const doSyncBoth = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncBoth();
+      const up = Object.values(r.uploaded).reduce((s, n) => s + n, 0);
+      const down = Object.values(r.downloaded).reduce((s, n) => s + n, 0);
+      const at = Date.now();
+      localStorage.setItem("lastSyncAt", String(at));
+      setLastSync({
+        at,
+        msg: `↑${up} 件 / ↓${down} 件 同期完了 (${r.durationMs}ms)`,
+      });
+      await refresh();
+    } catch (e) {
+      setLastSync({
+        at: Date.now(),
+        msg: "同期失敗: " + (e as Error).message,
+        error: true,
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const doPushOnly = async () => {
+    setSyncing(true);
+    try {
+      const r = await pushAllToCloud();
+      const up = Object.values(r).reduce((s, n) => s + n, 0);
+      setLastSync({
+        at: Date.now(),
+        msg: `↑${up} 件 アップロード完了`,
+      });
+    } catch (e) {
+      setLastSync({
+        at: Date.now(),
+        msg: "アップロード失敗: " + (e as Error).message,
+        error: true,
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const doPullOnly = async () => {
+    if (
+      !confirm(
+        "クラウドから上書きします。ローカルにあって新しい変更が消える可能性があります。続行しますか？",
+      )
+    )
+      return;
+    setSyncing(true);
+    try {
+      const r = await pullAllFromCloud();
+      const down = Object.values(r).reduce((s, n) => s + n, 0);
+      setLastSync({
+        at: Date.now(),
+        msg: `↓${down} 件 ダウンロード完了`,
+      });
+      await refresh();
+    } catch (e) {
+      setLastSync({
+        at: Date.now(),
+        msg: "ダウンロード失敗: " + (e as Error).message,
+        error: true,
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -117,13 +208,92 @@ export default function SettingsPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+        {/* Cloud Sync */}
+        <section
+          className={`rounded-xl p-5 shadow-sm ${
+            cloudConfigured
+              ? "bg-gradient-to-br from-emerald-50 to-white ring-2 ring-emerald-200"
+              : "bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] text-white"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {cloudConfigured ? (
+              <Cloud size={28} className="shrink-0 text-emerald-600" />
+            ) : (
+              <CloudOff size={28} className="shrink-0" />
+            )}
+            <div className="flex-1">
+              <h2 className="text-lg font-bold">
+                クラウド同期（Supabase）
+                {cloudConfigured && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    <CheckCircle2 size={10} /> 接続済み
+                  </span>
+                )}
+              </h2>
+              {cloudConfigured ? (
+                <>
+                  <p className="mt-1 text-[12px] text-slate-600">
+                    複数端末の同期・端末紛失時のバックアップ・お客様向け公開リンクが利用可能です。
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={doSyncBoth}
+                      disabled={syncing}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        size={14}
+                        className={syncing ? "animate-spin" : ""}
+                      />
+                      {syncing ? "同期中..." : "今すぐ双方向同期"}
+                    </button>
+                    <button
+                      onClick={doPushOnly}
+                      disabled={syncing}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      <ArrowUpCircle size={12} /> アップロードのみ
+                    </button>
+                    <button
+                      onClick={doPullOnly}
+                      disabled={syncing}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      <ArrowDownCircle size={12} /> ダウンロードのみ
+                    </button>
+                  </div>
+                  {lastSync && (
+                    <div
+                      className={`mt-2 text-[11px] ${lastSync.error ? "text-red-600" : "text-emerald-700"}`}
+                    >
+                      {new Date(lastSync.at).toLocaleString("ja-JP")} —{" "}
+                      {lastSync.msg}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-[12px] text-slate-300">
+                    端末ローカル保存のみで運用中。複数端末同期にはクラウド設定が必要です。
+                  </p>
+                  <div className="mt-3 rounded bg-black/20 p-2 text-[11px]">
+                    Supabase URL と anon key を環境変数に設定してください
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* Data Backup */}
         <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <h2 className="mb-2 text-lg font-bold text-[#1e3a5f]">
             データ バックアップ
           </h2>
           <p className="text-[12px] text-slate-600">
-            顧客・現場・訪問・カスタムテンプレ・薬剤プリセットをまとめて JSON ファイルに出力できます。別端末への引越し時はここからインポートしてください。
+            顧客・現場・訪問・カスタムテンプレ・薬剤プリセットをまとめて JSON
+            ファイルに出力できます。
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <button
@@ -151,31 +321,7 @@ export default function SettingsPage() {
           </div>
           <div className="mt-2 rounded-md bg-amber-50 p-2 text-[11px] text-amber-800">
             <AlertTriangle size={12} className="mr-1 inline" />
-            「インポート（追加）」は同一 ID のデータを上書きします。完全置き換えしたい場合は事前にエクスポートしてから手動で IndexedDB を消してください。
-          </div>
-        </section>
-
-        {/* Cloud Sync */}
-        <section className="rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] p-5 text-white shadow-sm">
-          <div className="flex items-start gap-3">
-            <Cloud size={28} className="shrink-0" />
-            <div className="flex-1">
-              <h2 className="text-lg font-bold">クラウド同期（Supabase）</h2>
-              <p className="mt-1 text-[12px] text-slate-300">
-                複数端末での同期・端末紛失時のバックアップが可能になります。
-                <br />
-                Supabase アカウントを作成して URL と anon key を貼り付けてください。
-              </p>
-              <div className="mt-3 rounded bg-black/20 p-2 text-[11px]">
-                <div>① https://supabase.com/dashboard で「Sign in with GitHub」</div>
-                <div>② 「New Project」→ Tokyo リージョン → 作成</div>
-                <div>③ Settings → API → URL と anon key をコピー</div>
-                <div>④ チャットで Claude に貼り付け</div>
-              </div>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
-                セットアップ待ち
-              </div>
-            </div>
+            「インポート」は同じ ID のデータを上書きします。
           </div>
         </section>
 

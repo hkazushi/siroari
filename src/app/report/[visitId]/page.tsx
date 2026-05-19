@@ -8,10 +8,13 @@ import {
   getCustomer,
   getSite,
 } from "@/lib/db";
+import { isCloudConfigured } from "@/lib/supabase";
+import { publishVisit, unpublishVisit } from "@/lib/sync";
 import type { Visit, Customer, Site, Stamp } from "@/types";
 import { stampDefOf } from "@/lib/stamps";
 import { formatArea, polygonArea } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
+import { Share2, Copy, CheckCircle2 } from "lucide-react";
 
 export default function ReportPage() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -117,17 +120,18 @@ export default function ReportPage() {
     <div className="min-h-screen bg-slate-200 print:bg-white">
       {/* Toolbar (hidden when printing) */}
       <div className="sticky top-0 z-20 border-b border-slate-300 bg-white px-4 py-3 shadow-sm print:hidden">
-        <div className="mx-auto flex max-w-[210mm] items-center justify-between gap-2">
+        <div className="mx-auto flex max-w-[210mm] flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-semibold text-slate-700">
             報告書プレビュー — {visit.name}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => window.history.back()}
               className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               ← 戻る
             </button>
+            <PublishButton visitId={visit.id} />
             <button
               onClick={() => window.print()}
               className="rounded-md bg-[#991b1b] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#7f1d1d]"
@@ -402,6 +406,97 @@ export default function ReportPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function PublishButton({ visitId }: { visitId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [slug, setSlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  if (!isCloudConfigured()) {
+    return null;
+  }
+
+  const publicUrl = slug
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/p/${slug}`
+    : null;
+
+  const onPublish = async () => {
+    setBusy(true);
+    try {
+      const s = await publishVisit(visitId);
+      setSlug(s);
+    } catch (e) {
+      alert(
+        "公開リンク作成に失敗しました。Supabase のスキーマが未作成かもしれません。\n" +
+          (e as Error).message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onUnpublish = async () => {
+    setBusy(true);
+    try {
+      await unpublishVisit(visitId);
+      setSlug(null);
+      setCopied(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCopy = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert(publicUrl);
+    }
+  };
+
+  if (slug && publicUrl) {
+    return (
+      <div className="flex flex-wrap items-center gap-1 rounded-md border-2 border-emerald-300 bg-emerald-50 px-2 py-1">
+        <span className="text-[10px] font-bold text-emerald-700">公開中</span>
+        <input
+          readOnly
+          value={publicUrl}
+          className="w-64 rounded border border-emerald-200 bg-white px-2 py-1 text-[10px]"
+          onClick={(e) => e.currentTarget.select()}
+        />
+        <button
+          onClick={onCopy}
+          className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+        >
+          {copied ? <CheckCircle2 size={10} /> : <Copy size={10} />}
+          {copied ? "コピー済" : "コピー"}
+        </button>
+        <button
+          onClick={onUnpublish}
+          disabled={busy}
+          className="rounded border border-emerald-300 bg-white px-2 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100"
+        >
+          公開停止
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={onPublish}
+      disabled={busy}
+      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+      title="お客様用の閲覧専用 URL を発行します"
+    >
+      <Share2 size={12} />
+      {busy ? "発行中..." : "公開リンク作成"}
+    </button>
   );
 }
 
