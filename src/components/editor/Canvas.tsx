@@ -71,6 +71,7 @@ export function Canvas({
     setOffset,
     zoomAt,
     select,
+    toggleSelect,
     selectedIds,
     updateElement,
     clearSelection,
@@ -88,6 +89,11 @@ export function Canvas({
   // Sketch state
   const [sketching, setSketching] = useState(false);
   const [sketchPoints, setSketchPoints] = useState<Point[]>([]);
+  // Vertex drag state（部屋の角を引っ張る）
+  const [draggingVertex, setDraggingVertex] = useState<{
+    roomId: string;
+    idx: number;
+  } | null>(null);
 
   useEffect(() => {
     setStageSize(size.width, size.height);
@@ -153,16 +159,74 @@ export function Canvas({
     const world = snapWorld(toWorld(pos.x, pos.y));
 
     if (tool === "select") {
-      // Did we click on an element? (clicking element bubbles up via element handlers)
-      // If empty area, start box select
+      const tappedShape = stage.getIntersection({ x: pos.x, y: pos.y });
+
+      // 辺の中点「+」ボタン: 頂点追加（L字化）
+      {
+        let node: Konva.Node | null = tappedShape;
+        while (node && node !== stage) {
+          const add = node.getAttr("data-add-vertex");
+          if (add) {
+            const [roomId, idxStr] = (add as string).split(":");
+            const room = useEditor.getState().elements.find(
+              (x) => x.id === roomId,
+            );
+            if (room?.type === "room") {
+              const idx = Number(idxStr);
+              const a = room.points[idx];
+              const b = room.points[(idx + 1) % room.points.length];
+              const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+              const next = [...room.points];
+              next.splice(idx + 1, 0, mid);
+              updateElement(roomId, { points: next } as Partial<typeof room>);
+              // 追加した頂点を即ドラッグ開始
+              setDraggingVertex({ roomId, idx: idx + 1 });
+            }
+            return;
+          }
+          node = node.getParent();
+        }
+      }
+
+      // 頂点ハンドル（角ドラッグ）
+      let node: Konva.Node | null = tappedShape;
+      while (node && node !== stage) {
+        const vid = node.getAttr("data-vertex-id");
+        if (vid) {
+          const [roomId, idxStr] = (vid as string).split(":");
+          setDraggingVertex({ roomId, idx: Number(idxStr) });
+          return;
+        }
+        node = node.getParent();
+      }
+
+      // 要素タップ → 選択 + ドラッグ開始（1 タップで掴める）
+      let elementId: string | null = null;
+      node = tappedShape;
+      while (node && node !== stage) {
+        const id = node.getAttr("data-element-id");
+        if (id) {
+          elementId = id as string;
+          break;
+        }
+        node = node.getParent();
+      }
+      if (elementId) {
+        if (e.evt.shiftKey) {
+          toggleSelect(elementId);
+        } else if (!selectedIds.includes(elementId)) {
+          select([elementId]);
+        }
+        setDraggingId(elementId);
+        setDragOffset({ x: world.x, y: world.y });
+        return;
+      }
+
+      // 何も無いところ → ボックス選択
       const targetName = (e.target as Konva.Node).name?.() ?? "";
       if (e.target === stage || targetName === "background") {
         clearSelection();
         setBoxSelect({ start: world, end: world });
-      } else if (selectedIds.length > 0) {
-        const id = selectedIds[0];
-        setDraggingId(id);
-        setDragOffset({ x: world.x, y: world.y });
       }
       return;
     }
@@ -284,6 +348,22 @@ export function Canvas({
       return;
     }
 
+    // 頂点ドラッグ中: その点だけ移動
+    if (draggingVertex) {
+      const el = useEditor.getState().elements.find(
+        (x) => x.id === draggingVertex.roomId,
+      );
+      if (el?.type === "room") {
+        const next = el.points.map((p, i) =>
+          i === draggingVertex.idx ? { x: world.x, y: world.y } : p,
+        );
+        updateElement(draggingVertex.roomId, {
+          points: next,
+        } as Partial<typeof el>);
+      }
+      return;
+    }
+
     if (draggingId) {
       const dx = world.x - dragOffset.x;
       const dy = world.y - dragOffset.y;
@@ -326,6 +406,9 @@ export function Canvas({
       }
       setSketching(false);
       setSketchPoints([]);
+    }
+    if (draggingVertex) {
+      setDraggingVertex(null);
     }
     if (boxSelect) {
       // Compute selection

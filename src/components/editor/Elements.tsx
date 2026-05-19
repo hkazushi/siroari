@@ -31,7 +31,7 @@ function isSelected(id: string, sel: string[]) {
 }
 
 function WallView({ el }: { el: Wall }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   const px = (p: { x: number; y: number }) => [
     offset.x + p.x * scale,
@@ -47,34 +47,33 @@ function WallView({ el }: { el: Wall }) {
       strokeWidth={Math.max(2, el.thickness * scale)}
       lineCap="square"
       hitStrokeWidth={Math.max(14, el.thickness * scale + 8)}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
     />
   );
 }
 
 function RoomView({ el }: { el: Room }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   const flat = worldToCanvasPoints(el.points, scale, offset);
   const area = polygonArea(el.points);
   const c = polygonCentroid(el.points);
   const cx = offset.x + c.x * scale;
   const cy = offset.y + c.y * scale;
+  // 辺の中点（L字化用 + 追加用）
+  const midpoints: { x: number; y: number; idx: number }[] = [];
+  if (selected && tool === "select") {
+    for (let i = 0; i < el.points.length; i++) {
+      const a = el.points[i];
+      const b = el.points[(i + 1) % el.points.length];
+      midpoints.push({
+        x: offset.x + ((a.x + b.x) / 2) * scale,
+        y: offset.y + ((a.y + b.y) / 2) * scale,
+        idx: i,
+      });
+    }
+  }
   return (
-    <Group
-      data-element-id={el.id}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
-    >
+    <Group data-element-id={el.id}>
       <Line
         points={flat}
         closed
@@ -104,12 +103,58 @@ function RoomView({ el }: { el: Room }) {
           listening={false}
         />
       ) : null}
+
+      {/* 頂点ドラッグハンドル（青の角） */}
+      {selected && tool === "select" &&
+        el.points.map((p, i) => (
+          <Rect
+            key={`v${i}`}
+            data-vertex-id={`${el.id}:${i}`}
+            x={offset.x + p.x * scale - 8}
+            y={offset.y + p.y * scale - 8}
+            width={16}
+            height={16}
+            fill="#fff"
+            stroke="#2563eb"
+            strokeWidth={2}
+            cornerRadius={2}
+          />
+        ))}
+
+      {/* 辺の中点ハンドル（+ で頂点追加 = L字化） */}
+      {selected &&
+        tool === "select" &&
+        midpoints.map((m) => (
+          <Group key={`mid${m.idx}`}>
+            <Rect
+              data-add-vertex={`${el.id}:${m.idx}`}
+              x={m.x - 7}
+              y={m.y - 7}
+              width={14}
+              height={14}
+              fill="#10b981"
+              stroke="#fff"
+              strokeWidth={1.5}
+              cornerRadius={7}
+              opacity={0.85}
+            />
+            <Text
+              text="+"
+              x={m.x - 5}
+              y={m.y - 8}
+              fontSize={14}
+              fontStyle="bold"
+              fill="#fff"
+              listening={false}
+            />
+          </Group>
+        ))}
     </Group>
   );
 }
 
 function StampView({ el }: { el: Stamp }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   return (
     <Group
@@ -119,12 +164,6 @@ function StampView({ el }: { el: Stamp }) {
       rotation={el.rotation}
       scaleX={scale}
       scaleY={scale}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
     >
       <StampGraphic stamp={el} />
       {selected && (
@@ -144,7 +183,7 @@ function StampView({ el }: { el: Stamp }) {
 }
 
 function TextView({ el }: { el: TextLabel }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   return (
     <Group
@@ -152,12 +191,6 @@ function TextView({ el }: { el: TextLabel }) {
       x={offset.x + el.position.x * scale}
       y={offset.y + el.position.y * scale}
       rotation={el.rotation}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
     >
       <Text
         text={el.text}
@@ -169,7 +202,7 @@ function TextView({ el }: { el: TextLabel }) {
 }
 
 function DimensionView({ el }: { el: Dimension }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   const dx = el.end.x - el.start.x;
   const dy = el.end.y - el.start.y;
@@ -193,12 +226,6 @@ function DimensionView({ el }: { el: Dimension }) {
   return (
     <Group
       data-element-id={el.id}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
     >
       <Line points={[s1x, s1y, ax, ay]} stroke="#64748b" strokeWidth={0.5} />
       <Line points={[e1x, e1y, bx, by]} stroke="#64748b" strokeWidth={0.5} />
@@ -221,7 +248,7 @@ function DimensionView({ el }: { el: Dimension }) {
 }
 
 function SketchView({ el }: { el: Sketch }) {
-  const { scale, offset, selectedIds, tool, toggleSelect, select } = useEditor();
+  const { scale, offset, selectedIds, tool } = useEditor();
   const selected = isSelected(el.id, selectedIds);
   const flat: number[] = [];
   for (const p of el.points) flat.push(offset.x + p.x * scale, offset.y + p.y * scale);
@@ -236,12 +263,6 @@ function SketchView({ el }: { el: Sketch }) {
       tension={0.4}
       hitStrokeWidth={Math.max(14, el.thickness * scale + 8)}
       opacity={0.85}
-      onPointerDown={(e) => {
-        if (tool !== "select") return;
-        e.cancelBubble = true;
-        if (e.evt.shiftKey) toggleSelect(el.id);
-        else select([el.id]);
-      }}
     />
   );
 }
