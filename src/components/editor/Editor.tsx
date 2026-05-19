@@ -3,16 +3,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
 import { useEditor } from "@/lib/store";
 import { Toolbar } from "./Toolbar";
 import { Properties } from "./Properties";
 import { StampLibrary } from "./StampLibrary";
-import { saveProject, loadProject, listProjects } from "@/lib/db";
-import { nanoid } from "nanoid";
-import jsPDF from "jspdf";
+import { VisitInfoBar } from "./VisitInfoBar";
+import { QuickStamps } from "./QuickStamps";
+import { CompassOverlay, ScaleBarOverlay } from "./CanvasOverlays";
+import {
+  ChemicalsDialog,
+  TemplatesDialog,
+  SignatureDialog,
+  VisitMetaDialog,
+  StampPhotoDialog,
+} from "./Dialogs";
+import { HeatmapDialog } from "./HeatmapDialog";
+import { saveVisit, loadVisit, listVisits, deleteVisit } from "@/lib/db";
+import { BUILDING_TEMPLATES } from "@/lib/templates";
+import { Logo } from "@/components/Logo";
 import type { CanvasHandle } from "./Canvas";
-import type { FloorPlan } from "@/types";
+import type { Visit } from "@/types";
 
 const Canvas = dynamic(() => import("./Canvas").then((m) => m.Canvas), {
   ssr: false,
@@ -23,17 +35,29 @@ const Canvas = dynamic(() => import("./Canvas").then((m) => m.Canvas), {
   ),
 });
 
+type DialogKind =
+  | null
+  | "chemicals"
+  | "templates"
+  | "customerSign"
+  | "technicianSign"
+  | "visitMeta"
+  | "heatmap"
+  | "stampPhoto"
+  | "openVisit";
+
 export function Editor() {
+  const router = useRouter();
   const handleRef = useRef<CanvasHandle | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [projects, setProjects] = useState<FloorPlan[]>([]);
+  const [dialog, setDialog] = useState<DialogKind>(null);
+  const [photoStampId, setPhotoStampId] = useState<string | null>(null);
+  const [visits, setVisits] = useState<Visit[]>([]);
 
   const {
     selectedIds,
     updateElement,
-    name,
     projectId,
     loadProject: loadInStore,
     serialize,
@@ -41,6 +65,8 @@ export function Editor() {
     setScale,
     setOffset,
     stageSize,
+    elements,
+    applyTemplate,
   } = useEditor();
 
   const onSave = useCallback(async () => {
@@ -50,44 +76,36 @@ export function Editor() {
       p.id = id;
       useEditor.setState({ projectId: id });
     }
-    await saveProject(p);
-    // toast
+    await saveVisit(p);
+    // toast-ish
     alert("保存しました");
   }, [projectId, serialize]);
 
-  const onExportPNG = useCallback(() => {
+  const onReport = useCallback(async () => {
+    // Save first so /report can load it
+    const p = serialize();
+    if (!projectId) {
+      const id = nanoid(10);
+      p.id = id;
+      useEditor.setState({ projectId: id });
+    }
+    await saveVisit(p);
+    // Capture map snapshot and stash in sessionStorage
     const data = handleRef.current?.exportPNG();
-    if (!data) return;
-    const a = document.createElement("a");
-    a.href = data;
-    a.download = `${name}.png`;
-    a.click();
-  }, [name]);
-
-  const onExportPDF = useCallback(() => {
-    const data = handleRef.current?.exportPNG();
-    if (!data) return;
-    const stage = handleRef.current?.getStage();
-    if (!stage) return;
-    const w = stage.width();
-    const h = stage.height();
-    const orientation = w > h ? "landscape" : "portrait";
-    const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageW / w, pageH / h);
-    const drawW = w * ratio;
-    const drawH = h * ratio;
-    const ox = (pageW - drawW) / 2;
-    const oy = (pageH - drawH) / 2;
-    pdf.addImage(data, "PNG", ox, oy, drawW, drawH);
-    pdf.save(`${name}.pdf`);
-  }, [name]);
+    if (data && typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(`report:${p.id}:map`, data);
+      } catch {
+        // Storage may fail if too big; degrade gracefully
+      }
+    }
+    router.push(`/report/${p.id}`);
+  }, [projectId, router, serialize]);
 
   const onOpen = useCallback(async () => {
-    const list = await listProjects();
-    setProjects(list);
-    setOpenDialog(true);
+    const list = await listVisits();
+    setVisits(list);
+    setDialog("openVisit");
   }, []);
 
   const onRotate = useCallback(() => {
@@ -95,7 +113,9 @@ export function Editor() {
       const el = useEditor.getState().elements.find((e) => e.id === id);
       if (!el) continue;
       if (el.type === "stamp" || el.type === "text") {
-        updateElement(id, { rotation: (el.rotation + 90) % 360 } as Partial<typeof el>);
+        updateElement(id, { rotation: (el.rotation + 90) % 360 } as Partial<
+          typeof el
+        >);
       }
     }
   }, [selectedIds, updateElement]);
@@ -113,14 +133,24 @@ export function Editor() {
     });
   }, [stageSize.width, stageSize.height, paperSize.width, paperSize.height, setScale, setOffset]);
 
-  // Dev: expose store for debugging
+  const applyTemplateId = useCallback(
+    (id: string) => {
+      const t = BUILDING_TEMPLATES.find((x) => x.id === id);
+      if (!t) return;
+      const els = t.buildElements();
+      applyTemplate(els);
+    },
+    [applyTemplate],
+  );
+
+  // Expose store on window for testing/debug
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       (window as unknown as { __editor: typeof useEditor }).__editor = useEditor;
     }
   }, []);
 
-  // Hotkeys for tools
+  // Hotkeys
   useEffect(() => {
     const h = (ev: KeyboardEvent) => {
       const tag = (ev.target as HTMLElement | null)?.tagName;
@@ -137,22 +167,33 @@ export function Editor() {
         e: "eraser",
       };
       const tool = map[ev.key.toLowerCase()];
-      if (tool) {
-        useEditor.getState().setTool(tool as never);
-      }
+      if (tool) useEditor.getState().setTool(tool as never);
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
 
+  // Properties panel passes photo open requests
+  useEffect(() => {
+    const opener = (id: string) => {
+      setPhotoStampId(id);
+      setDialog("stampPhoto");
+    };
+    (window as unknown as { __openStampPhoto?: (id: string) => void }).__openStampPhoto = opener;
+    return () => {
+      delete (window as unknown as { __openStampPhoto?: (id: string) => void }).__openStampPhoto;
+    };
+  }, []);
+
   return (
     <div className="flex h-dvh w-full flex-col bg-slate-50">
+      {/* Brand header */}
       <div className="flex items-center gap-3 border-b-2 border-[#991b1b] bg-white px-3 py-2">
         <Link href="/" className="hover:opacity-80">
-          <Logo size={44} withText={false} />
+          <Logo size={36} withText={false} />
         </Link>
         <div className="leading-tight">
-          <div className="text-[14px] font-bold text-[#1e3a5f]">
+          <div className="text-[13px] font-bold text-[#1e3a5f]">
             東山メンテナンス
           </div>
           <div className="text-[10px] text-slate-500">害虫駆除 / 現場マップ</div>
@@ -161,20 +202,37 @@ export function Editor() {
           害虫から、快適な暮らしを守る。
         </div>
       </div>
+
+      {/* Visit context bar */}
+      <VisitInfoBar onEdit={() => setDialog("visitMeta")} />
+
       <Toolbar
         onSave={onSave}
-        onExportPNG={onExportPNG}
-        onExportPDF={onExportPDF}
+        onReport={onReport}
         onOpen={onOpen}
         onRotate={onRotate}
         onFitView={onFitView}
+        onChemicals={() => setDialog("chemicals")}
+        onTemplates={() => setDialog("templates")}
+        onCustomerSign={() => setDialog("customerSign")}
+        onTechnicianSign={() => setDialog("technicianSign")}
+        onVisitMeta={() => setDialog("visitMeta")}
+        onHeatmap={() => setDialog("heatmap")}
       />
+
       <div className="flex min-h-0 flex-1">
         <div className={`hidden shrink-0 sm:block ${sidebarOpen ? "w-48" : "w-0"}`}>
           <StampLibrary />
         </div>
         <div className="relative flex-1">
           <Canvas onReady={(h) => (handleRef.current = h)} />
+
+          {/* Overlays */}
+          <CompassOverlay />
+          <ScaleBarOverlay />
+          <QuickStamps />
+
+          {/* Mobile sidebar toggles */}
           <button
             className="absolute left-2 top-2 rounded bg-white px-2 py-1 text-xs shadow hover:bg-slate-50 sm:hidden"
             onClick={() => setSidebarOpen((v) => !v)}
@@ -187,7 +245,8 @@ export function Editor() {
           >
             プロパティ
           </button>
-          {/* Mobile sidebar overlays */}
+
+          {/* Mobile overlays */}
           {sidebarOpen && (
             <div className="absolute left-0 top-10 z-20 h-[calc(100%-2.5rem)] w-48 sm:hidden">
               <StampLibrary />
@@ -204,26 +263,71 @@ export function Editor() {
         </div>
       </div>
 
-      {openDialog && (
-        <OpenDialog
-          projects={projects}
-          onClose={() => setOpenDialog(false)}
+      {/* Empty-state hint */}
+      {elements.length === 0 && (
+        <button
+          onClick={() => setDialog("templates")}
+          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-dashed border-slate-300 bg-white/95 px-6 py-4 text-center text-sm text-slate-600 shadow-lg hover:border-[#991b1b] hover:bg-red-50"
+        >
+          <div className="text-base font-bold text-[#1e3a5f]">
+            建物テンプレートから始める
+          </div>
+          <div className="mt-1 text-[12px] text-slate-500">
+            または、左のツールで自由に描画
+          </div>
+        </button>
+      )}
+
+      {/* Dialogs */}
+      {dialog === "openVisit" && (
+        <OpenVisitDialog
+          visits={visits}
+          onClose={() => setDialog(null)}
           onPick={async (id) => {
-            const p = await loadProject(id);
+            const p = await loadVisit(id);
             if (p) {
               loadInStore(p);
-              setOpenDialog(false);
+              setDialog(null);
             }
           }}
           onNew={() => {
             useEditor.getState().newProject();
-            setOpenDialog(false);
+            setDialog(null);
           }}
           onDelete={async (id) => {
-            const { deleteProject } = await import("@/lib/db");
-            await deleteProject(id);
-            const list = await listProjects();
-            setProjects(list);
+            await deleteVisit(id);
+            const list = await listVisits();
+            setVisits(list);
+          }}
+        />
+      )}
+      {dialog === "chemicals" && (
+        <ChemicalsDialog onClose={() => setDialog(null)} />
+      )}
+      {dialog === "templates" && (
+        <TemplatesDialog
+          onClose={() => setDialog(null)}
+          onApply={applyTemplateId}
+        />
+      )}
+      {dialog === "customerSign" && (
+        <SignatureDialog who="customer" onClose={() => setDialog(null)} />
+      )}
+      {dialog === "technicianSign" && (
+        <SignatureDialog who="technician" onClose={() => setDialog(null)} />
+      )}
+      {dialog === "visitMeta" && (
+        <VisitMetaDialog onClose={() => setDialog(null)} />
+      )}
+      {dialog === "heatmap" && (
+        <HeatmapDialog onClose={() => setDialog(null)} />
+      )}
+      {dialog === "stampPhoto" && photoStampId && (
+        <StampPhotoDialog
+          stampId={photoStampId}
+          onClose={() => {
+            setDialog(null);
+            setPhotoStampId(null);
           }}
         />
       )}
@@ -231,14 +335,14 @@ export function Editor() {
   );
 }
 
-function OpenDialog({
-  projects,
+function OpenVisitDialog({
+  visits,
   onClose,
   onPick,
   onNew,
   onDelete,
 }: {
-  projects: FloorPlan[];
+  visits: Visit[];
   onClose: () => void;
   onPick: (id: string) => void;
   onNew: () => void;
@@ -248,41 +352,42 @@ function OpenDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-4 py-2">
-          <div className="font-semibold">プロジェクトを開く</div>
+          <div className="font-semibold">施工マップを開く</div>
           <button className="text-slate-500 hover:text-slate-900" onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="max-h-96 overflow-y-auto p-2">
           <button
-            className="mb-2 w-full rounded border border-dashed border-slate-300 px-3 py-2 text-left text-sm text-blue-600 hover:bg-blue-50"
+            className="mb-2 w-full rounded border border-dashed border-slate-300 px-3 py-2 text-left text-sm text-[#991b1b] hover:bg-red-50"
             onClick={onNew}
           >
-            + 新規プロジェクト
+            + 新規マップ
           </button>
-          {projects.length === 0 && (
+          {visits.length === 0 && (
             <div className="p-4 text-center text-sm text-slate-500">
-              保存されたプロジェクトはありません
+              保存された記録はありません
             </div>
           )}
-          {projects.map((p) => (
+          {visits.map((v) => (
             <div
-              key={p.id}
+              key={v.id}
               className="flex items-center justify-between gap-2 rounded px-2 py-2 hover:bg-slate-50"
             >
               <button
                 className="flex-1 text-left text-sm"
-                onClick={() => onPick(p.id)}
+                onClick={() => onPick(v.id)}
               >
-                <div className="font-medium text-slate-800">{p.name}</div>
+                <div className="font-medium text-slate-800">{v.name}</div>
                 <div className="text-xs text-slate-400">
-                  {new Date(p.updatedAt).toLocaleString("ja-JP")} ・ {p.elements.length} 要素
+                  {new Date(v.updatedAt).toLocaleString("ja-JP")} ・{" "}
+                  {v.elements.length} 要素
                 </div>
               </button>
               <button
                 className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
                 onClick={() => {
-                  if (confirm(`「${p.name}」を削除しますか？`)) onDelete(p.id);
+                  if (confirm(`「${v.name}」を削除しますか？`)) onDelete(v.id);
                 }}
               >
                 削除

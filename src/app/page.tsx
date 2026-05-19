@@ -10,6 +10,7 @@ import {
   Save,
   Ruler,
   ArrowRight,
+  Users,
 } from "lucide-react";
 
 export default function Home() {
@@ -42,11 +43,18 @@ function Header() {
         </Link>
         <div className="flex items-center gap-2">
           <Link
-            href="/projects"
+            href="/customers"
             className="hidden rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:inline-flex"
           >
+            <Users size={16} className="mr-1.5" />
+            顧客台帳
+          </Link>
+          <Link
+            href="/projects"
+            className="hidden rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex"
+          >
             <FolderOpen size={16} className="mr-1.5" />
-            過去の現場
+            全現場
           </Link>
           <Link
             href="/editor"
@@ -86,19 +94,19 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/editor"
+              href="/customers"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#991b1b] px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#7f1d1d] sm:text-base"
             >
-              <MapPin size={18} />
-              施工マップを開く
+              <Users size={18} />
+              顧客台帳を開く
               <ArrowRight size={18} />
             </Link>
             <Link
-              href="/projects"
+              href="/editor"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-500 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/10 sm:text-base"
             >
-              <FolderOpen size={18} />
-              過去の現場記録
+              <MapPin size={18} />
+              すぐマップを描く
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-slate-400 sm:text-xs">

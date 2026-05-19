@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type {
   AnyElement,
-  FloorPlan,
+  Visit,
   Point,
   StampType,
   ToolType,
@@ -13,15 +13,30 @@ import type {
   Stamp,
   TextLabel,
   Dimension,
+  ChemicalUse,
+  StampPhoto,
 } from "@/types";
 import { stampDefOf } from "@/lib/stamps";
 
 const MAX_HISTORY = 100;
+const MAX_RECENT_STAMPS = 6;
 
 type EditorState = {
-  // Project
+  // Project / Visit
   projectId: string | null;
   name: string;
+  customerId?: string;
+  siteId?: string;
+  visitNumber?: number;
+  visitDate?: number;
+  nextVisitDate?: number;
+  technicianName?: string;
+  technicianLicense?: string;
+  generalNotes?: string;
+  chemicals: ChemicalUse[];
+  customerSignature?: string;
+  technicianSignature?: string;
+  // Map elements
   elements: AnyElement[];
   gridSize: number; // mm
   paperSize: { width: number; height: number }; // mm
@@ -33,9 +48,12 @@ type EditorState = {
   offset: Point; // px
   showGrid: boolean;
   snapToGrid: boolean;
+  showCompass: boolean;
+  showScaleBar: boolean;
   // Tool
   tool: ToolType;
   activeStamp: StampType;
+  recentStamps: StampType[]; // 最近使ったスタンプ
   // Selection
   selectedIds: string[];
   // Drafting
@@ -43,7 +61,7 @@ type EditorState = {
   // Stage size for rendering
   stageSize: { width: number; height: number };
 
-  // Actions
+  // ===== Actions =====
   setStageSize: (w: number, h: number) => void;
   setTool: (t: ToolType) => void;
   setActiveStamp: (s: StampType) => void;
@@ -52,8 +70,21 @@ type EditorState = {
   zoomAt: (factor: number, focalCanvas: Point) => void;
   setShowGrid: (b: boolean) => void;
   setSnapToGrid: (b: boolean) => void;
+  setShowCompass: (b: boolean) => void;
+  setShowScaleBar: (b: boolean) => void;
   setName: (n: string) => void;
   setGridSize: (s: number) => void;
+
+  // Visit metadata
+  setVisitMeta: (patch: Partial<Pick<EditorState,
+    | "customerId" | "siteId" | "visitNumber" | "visitDate" | "nextVisitDate"
+    | "technicianName" | "technicianLicense" | "generalNotes"
+    | "customerSignature" | "technicianSignature"
+  >>) => void;
+  setChemicals: (chems: ChemicalUse[]) => void;
+  addChemical: (c: ChemicalUse) => void;
+  updateChemical: (id: string, patch: Partial<ChemicalUse>) => void;
+  removeChemical: (id: string) => void;
 
   setDraftStart: (p: Point | null) => void;
 
@@ -62,11 +93,15 @@ type EditorState = {
   clearSelection: () => void;
 
   addElement: (el: AnyElement) => void;
+  addElements: (els: AnyElement[]) => void;
   addWall: (start: Point, end: Point) => void;
   addRoomRect: (a: Point, b: Point) => void;
   addStamp: (pos: Point, stampType?: StampType, rotation?: number) => void;
   addText: (pos: Point, text: string) => void;
   addDimension: (start: Point, end: Point) => void;
+
+  attachPhotoToStamp: (stampId: string, photo: StampPhoto) => void;
+  removePhotoFromStamp: (stampId: string, photoId: string) => void;
 
   updateElement: (id: string, patch: Partial<AnyElement>) => void;
   deleteSelected: () => void;
@@ -77,9 +112,11 @@ type EditorState = {
   canUndo: () => boolean;
   canRedo: () => boolean;
 
-  loadProject: (p: FloorPlan) => void;
+  loadProject: (p: Visit) => void;
   newProject: (name?: string) => void;
-  serialize: () => FloorPlan;
+  serialize: () => Visit;
+  applyTemplate: (els: AnyElement[]) => void;
+  copyFromVisit: (v: Visit) => void;
 };
 
 function commitHistory(state: EditorState): Partial<EditorState> {
@@ -87,20 +124,41 @@ function commitHistory(state: EditorState): Partial<EditorState> {
   return { past, future: [] };
 }
 
+function pushRecentStamp(
+  list: StampType[],
+  t: StampType,
+): StampType[] {
+  return [t, ...list.filter((x) => x !== t)].slice(0, MAX_RECENT_STAMPS);
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   projectId: null,
   name: "新規現場",
+  customerId: undefined,
+  siteId: undefined,
+  visitNumber: undefined,
+  visitDate: undefined,
+  nextVisitDate: undefined,
+  technicianName: undefined,
+  technicianLicense: undefined,
+  generalNotes: undefined,
+  chemicals: [],
+  customerSignature: undefined,
+  technicianSignature: undefined,
   elements: [],
   gridSize: 910,
-  paperSize: { width: 14560, height: 10920 }, // 16 x 12 半間 ≒ A3 ratio
+  paperSize: { width: 14560, height: 10920 },
   past: [],
   future: [],
-  scale: 0.05, // 1mm = 0.05px → 1 grid (910mm) = 45.5px
+  scale: 0.05,
   offset: { x: 80, y: 80 },
   showGrid: true,
   snapToGrid: true,
+  showCompass: true,
+  showScaleBar: true,
   tool: "select",
-  activeStamp: "door",
+  activeStamp: "pestRoach",
+  recentStamps: ["pestRoach", "baitStation", "pestRodent", "trapMouse", "sprayZone", "entryPoint"],
   selectedIds: [],
   draftStart: null,
   stageSize: { width: 800, height: 600 },
@@ -108,14 +166,13 @@ export const useEditor = create<EditorState>((set, get) => ({
   setStageSize: (w, h) => set({ stageSize: { width: w, height: h } }),
   setTool: (t) =>
     set({ tool: t, draftStart: null, selectedIds: t === "select" ? get().selectedIds : [] }),
-  setActiveStamp: (s) => set({ activeStamp: s }),
+  setActiveStamp: (s) =>
+    set((st) => ({ activeStamp: s, recentStamps: pushRecentStamp(st.recentStamps, s) })),
   setScale: (s) => set({ scale: Math.min(0.5, Math.max(0.005, s)) }),
   setOffset: (o) => set({ offset: o }),
   zoomAt: (factor, focalCanvas) => {
     const { scale, offset } = get();
     const newScale = Math.min(0.5, Math.max(0.005, scale * factor));
-    // Keep focal point stationary: world coord at focal stays same
-    // worldX = (focalCanvas.x - offset.x) / scale  ; with newScale, newOffset = focalCanvas - worldX*newScale
     const worldX = (focalCanvas.x - offset.x) / scale;
     const worldY = (focalCanvas.y - offset.y) / scale;
     set({
@@ -128,8 +185,21 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
   setShowGrid: (b) => set({ showGrid: b }),
   setSnapToGrid: (b) => set({ snapToGrid: b }),
+  setShowCompass: (b) => set({ showCompass: b }),
+  setShowScaleBar: (b) => set({ showScaleBar: b }),
   setName: (n) => set({ name: n }),
   setGridSize: (s) => set({ gridSize: s }),
+
+  setVisitMeta: (patch) => set(patch as Partial<EditorState>),
+  setChemicals: (chems) => set({ chemicals: chems }),
+  addChemical: (c) =>
+    set((st) => ({ chemicals: [...st.chemicals, c] })),
+  updateChemical: (id, patch) =>
+    set((st) => ({
+      chemicals: st.chemicals.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    })),
+  removeChemical: (id) =>
+    set((st) => ({ chemicals: st.chemicals.filter((c) => c.id !== id) })),
 
   setDraftStart: (p) => set({ draftStart: p }),
 
@@ -143,10 +213,10 @@ export const useEditor = create<EditorState>((set, get) => ({
   clearSelection: () => set({ selectedIds: [] }),
 
   addElement: (el) =>
-    set((s) => ({
-      ...commitHistory(s),
-      elements: [...s.elements, el],
-    })),
+    set((s) => ({ ...commitHistory(s), elements: [...s.elements, el] })),
+
+  addElements: (els) =>
+    set((s) => ({ ...commitHistory(s), elements: [...s.elements, ...els] })),
 
   addWall: (start, end) =>
     set((s) => {
@@ -195,7 +265,11 @@ export const useEditor = create<EditorState>((set, get) => ({
         width: def.defaultWidth,
         height: def.defaultHeight,
       };
-      return { ...commitHistory(s), elements: [...s.elements, stamp] };
+      return {
+        ...commitHistory(s),
+        elements: [...s.elements, stamp],
+        recentStamps: pushRecentStamp(s.recentStamps, t),
+      };
     }),
 
   addText: (pos, text) =>
@@ -221,6 +295,34 @@ export const useEditor = create<EditorState>((set, get) => ({
         offset: 400,
       };
       return { ...commitHistory(s), elements: [...s.elements, el] };
+    }),
+
+  attachPhotoToStamp: (stampId, photo) =>
+    set((s) => {
+      const idx = s.elements.findIndex((e) => e.id === stampId);
+      if (idx === -1) return {};
+      const el = s.elements[idx];
+      if (el.type !== "stamp") return {};
+      const next = [...s.elements];
+      next[idx] = {
+        ...el,
+        photos: [...(el.photos ?? []), photo],
+      };
+      return { ...commitHistory(s), elements: next };
+    }),
+
+  removePhotoFromStamp: (stampId, photoId) =>
+    set((s) => {
+      const idx = s.elements.findIndex((e) => e.id === stampId);
+      if (idx === -1) return {};
+      const el = s.elements[idx];
+      if (el.type !== "stamp") return {};
+      const next = [...s.elements];
+      next[idx] = {
+        ...el,
+        photos: (el.photos ?? []).filter((p) => p.id !== photoId),
+      };
+      return { ...commitHistory(s), elements: next };
     }),
 
   updateElement: (id, patch) =>
@@ -280,6 +382,17 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({
       projectId: p.id,
       name: p.name,
+      customerId: p.customerId,
+      siteId: p.siteId,
+      visitNumber: p.visitNumber,
+      visitDate: p.visitDate,
+      nextVisitDate: p.nextVisitDate,
+      technicianName: p.technicianName,
+      technicianLicense: p.technicianLicense,
+      generalNotes: p.generalNotes,
+      chemicals: p.chemicals ?? [],
+      customerSignature: p.customerSignature,
+      technicianSignature: p.technicianSignature,
       elements: p.elements,
       gridSize: p.gridSize,
       paperSize: p.paperSize,
@@ -292,17 +405,63 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({
       projectId: null,
       name: name ?? "新規現場",
+      customerId: undefined,
+      siteId: undefined,
+      visitNumber: undefined,
+      visitDate: Date.now(),
+      nextVisitDate: undefined,
+      technicianName: undefined,
+      technicianLicense: undefined,
+      generalNotes: undefined,
+      chemicals: [],
+      customerSignature: undefined,
+      technicianSignature: undefined,
       elements: [],
       past: [],
       future: [],
       selectedIds: [],
     }),
 
-  serialize: (): FloorPlan => {
+  applyTemplate: (els) =>
+    set((s) => ({
+      ...commitHistory(s),
+      elements: [...s.elements, ...els],
+    })),
+
+  /** 同一現場の前回 visit から地図・薬剤をコピー（新規 ID 化） */
+  copyFromVisit: (v) =>
+    set((s) => {
+      const cloned: AnyElement[] = v.elements.map((e) => ({
+        ...e,
+        id: nanoid(8),
+      }));
+      const clonedChems: ChemicalUse[] = (v.chemicals ?? []).map((c) => ({
+        ...c,
+        id: nanoid(8),
+      }));
+      return {
+        ...commitHistory(s),
+        elements: cloned,
+        chemicals: clonedChems,
+      };
+    }),
+
+  serialize: (): Visit => {
     const s = get();
     return {
       id: s.projectId ?? nanoid(10),
       name: s.name,
+      customerId: s.customerId,
+      siteId: s.siteId,
+      visitNumber: s.visitNumber,
+      visitDate: s.visitDate,
+      nextVisitDate: s.nextVisitDate,
+      technicianName: s.technicianName,
+      technicianLicense: s.technicianLicense,
+      generalNotes: s.generalNotes,
+      chemicals: s.chemicals,
+      customerSignature: s.customerSignature,
+      technicianSignature: s.technicianSignature,
       elements: s.elements,
       gridSize: s.gridSize,
       paperSize: s.paperSize,
