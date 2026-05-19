@@ -109,7 +109,7 @@ function Dashboard({
                 <Plus size={16} /> 最初の顧客を登録
               </Link>
               <Link
-                href="/editor"
+                href="/editor?new=1"
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-[#1e3a5f] hover:bg-slate-50"
               >
                 <MapPin size={16} /> いきなりマップを描く
@@ -252,7 +252,7 @@ function Dashboard({
         {/* Quick actions */}
         <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Link
-            href="/editor"
+            href="/editor?new=1"
             className="inline-flex flex-col items-center gap-1 rounded-lg bg-[#991b1b] px-4 py-3 text-sm font-bold text-white hover:bg-[#7f1d1d]"
           >
             <MapPin size={20} />

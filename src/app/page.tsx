@@ -243,11 +243,11 @@ function CTASection() {
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/editor"
+            href="/editor?new=1"
             className="inline-flex items-center gap-2 rounded-lg bg-[#991b1b] px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#7f1d1d] sm:text-base"
           >
             <MapPin size={18} />
-            今すぐ施工マップを開く
+            今すぐ新規マップを作る
           </Link>
           <Link
             href="/customers"

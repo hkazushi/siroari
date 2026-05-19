@@ -2,13 +2,16 @@
 
 import { useEditor } from "@/lib/store";
 
-/** 方位コンパス（左上） */
+/** 方位コンパス（モバイルは右上に小さく、デスクトップは左上に大きく） */
 export function CompassOverlay() {
   const { showCompass } = useEditor();
   if (!showCompass) return null;
   return (
-    <div className="pointer-events-none absolute left-3 top-3 z-10">
-      <svg width="56" height="56" viewBox="0 0 56 56">
+    <div className="pointer-events-none absolute right-3 top-12 z-10 sm:left-3 sm:right-auto sm:top-3">
+      <svg
+        viewBox="0 0 56 56"
+        className="h-9 w-9 sm:h-14 sm:w-14"
+      >
         <circle cx="28" cy="28" r="25" fill="rgba(255,255,255,0.9)" stroke="#1e3a5f" strokeWidth="1.5" />
         <polygon points="28,6 24,28 28,24 32,28" fill="#991b1b" stroke="#991b1b" strokeWidth="1" />
         <polygon points="28,50 24,28 28,32 32,28" fill="#fff" stroke="#1e3a5f" strokeWidth="1" />

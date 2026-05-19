@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { nanoid } from "nanoid";
 import { useEditor } from "@/lib/store";
 import { Toolbar } from "./Toolbar";
@@ -24,7 +24,7 @@ import { saveVisit, loadVisit, listVisits, deleteVisit } from "@/lib/db";
 import { cloudSaveVisit } from "@/lib/sync";
 import { BUILDING_TEMPLATES } from "@/lib/templates";
 import { Logo } from "@/components/Logo";
-import { Home as HomeIcon, Users } from "lucide-react";
+import { Home as HomeIcon, Users, Check } from "lucide-react";
 import type { CanvasHandle } from "./Canvas";
 import type { Visit } from "@/types";
 
@@ -50,12 +50,35 @@ type DialogKind =
 
 export function Editor() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const handleRef = useRef<CanvasHandle | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [propsOpen, setPropsOpen] = useState(true);
+  // モバイルではサイドバーを閉じてスタート（キャンバスをフル表示）
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [propsOpen, setPropsOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [photoStampId, setPhotoStampId] = useState<string | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+
+  // 起動時にビューポート幅でデフォルト状態を決定（デスクトップは両側パネル開く）
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDesktop = window.innerWidth >= 640;
+    queueMicrotask(() => {
+      if (isDesktop) {
+        setSidebarOpen(true);
+        setPropsOpen(true);
+      }
+    });
+  }, []);
+
+  // ?new=1 が付いてきたら新規マップとして初期化する
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      useEditor.getState().newProject();
+      // URL をクリーンに保つため new=1 を消す
+      router.replace("/editor");
+    }
+  }, [searchParams, router]);
 
   const {
     selectedIds,
@@ -230,10 +253,12 @@ export function Editor() {
           </Link>
           <button
             onClick={onSaveAndExit}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 sm:px-3"
             title="保存してホームへ"
           >
-            保存して戻る
+            <Check size={14} />
+            <span className="hidden sm:inline">保存して戻る</span>
+            <span className="sm:hidden">保存</span>
           </button>
         </div>
       </div>
@@ -298,18 +323,18 @@ export function Editor() {
         </div>
       </div>
 
-      {/* Empty-state hint */}
-      {elements.length === 0 && (
+      {/* Empty-state hint（モバイルでサイドバーと重ならない位置） */}
+      {elements.length === 0 && !sidebarOpen && !propsOpen && (
         <button
           onClick={() => setDialog("templates")}
-          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-dashed border-slate-300 bg-white/95 px-6 py-4 text-center text-sm text-slate-600 shadow-lg hover:border-[#991b1b] hover:bg-red-50"
+          className="pointer-events-auto absolute left-1/2 bottom-20 z-10 -translate-x-1/2 rounded-full border-2 border-dashed border-slate-300 bg-white px-4 py-2 text-center text-xs text-slate-600 shadow-lg hover:border-[#991b1b] hover:bg-red-50 sm:bottom-auto sm:top-4 sm:px-5 sm:py-2.5 sm:text-sm"
         >
-          <div className="text-base font-bold text-[#1e3a5f]">
-            建物テンプレートから始める
-          </div>
-          <div className="mt-1 text-[12px] text-slate-500">
-            または、左のツールで自由に描画
-          </div>
+          <span className="font-bold text-[#1e3a5f]">
+            🏠 建物テンプレートから始める
+          </span>
+          <span className="ml-2 hidden text-[12px] text-slate-500 sm:inline">
+            ・左ツールで自由描画
+          </span>
         </button>
       )}
 
