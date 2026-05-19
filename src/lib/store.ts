@@ -55,6 +55,10 @@ type EditorState = {
   tool: ToolType;
   activeStamp: StampType;
   recentStamps: StampType[]; // 最近使ったスタンプ
+  // 手描き設定
+  sketchColor: string;
+  sketchThickness: number; // mm
+  sketchEraser: boolean; // 手描きツール内のミニ消しゴム
   // Selection
   selectedIds: string[];
   // Drafting
@@ -73,6 +77,9 @@ type EditorState = {
   setSnapToGrid: (b: boolean) => void;
   setShowCompass: (b: boolean) => void;
   setShowScaleBar: (b: boolean) => void;
+  setSketchColor: (c: string) => void;
+  setSketchThickness: (t: number) => void;
+  setSketchEraser: (b: boolean) => void;
   setName: (n: string) => void;
   setGridSize: (s: number) => void;
 
@@ -162,6 +169,9 @@ export const useEditor = create<EditorState>((set, get) => ({
   tool: "select",
   activeStamp: "pestRoach",
   recentStamps: ["pestRoach", "baitStation", "pestRodent", "trapMouse", "sprayZone", "entryPoint"],
+  sketchColor: "#991b1b",
+  sketchThickness: 60,
+  sketchEraser: false,
   selectedIds: [],
   draftStart: null,
   stageSize: { width: 800, height: 600 },
@@ -190,6 +200,9 @@ export const useEditor = create<EditorState>((set, get) => ({
   setSnapToGrid: (b) => set({ snapToGrid: b }),
   setShowCompass: (b) => set({ showCompass: b }),
   setShowScaleBar: (b) => set({ showScaleBar: b }),
+  setSketchColor: (c) => set({ sketchColor: c }),
+  setSketchThickness: (t) => set({ sketchThickness: Math.max(10, Math.min(200, t)) }),
+  setSketchEraser: (b) => set({ sketchEraser: b }),
   setName: (n) => set({ name: n }),
   setGridSize: (s) => set({ gridSize: s }),
 
@@ -307,8 +320,8 @@ export const useEditor = create<EditorState>((set, get) => ({
         id: nanoid(8),
         type: "sketch",
         points,
-        color: "#991b1b",
-        thickness: 60,
+        color: s.sketchColor,
+        thickness: s.sketchThickness,
       };
       return { ...commitHistory(s), elements: [...s.elements, el] };
     }),

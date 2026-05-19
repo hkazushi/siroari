@@ -21,6 +21,7 @@ import {
   Building2,
   Home as HomeIcon,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 
 /** ランディングのダッシュボード部分（統計 + 最近の現場 + クイックアクション） */
@@ -251,13 +252,22 @@ function Dashboard({
         )}
 
         {/* Quick actions */}
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Link
             href="/editor?new=1"
             className="inline-flex flex-col items-center gap-1 rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 px-4 py-3 text-sm font-bold text-white shadow hover:from-amber-600 hover:to-rose-600"
           >
             <Sparkles size={20} />
             <span>AI マップ</span>
+            <span className="text-[9px] font-normal opacity-80">音声で作成</span>
+          </Link>
+          <Link
+            href="/editor?new=1&tool=sketch"
+            className="inline-flex flex-col items-center gap-1 rounded-lg bg-gradient-to-br from-rose-500 to-purple-600 px-4 py-3 text-sm font-bold text-white shadow hover:from-rose-600 hover:to-purple-700"
+          >
+            <Pencil size={20} />
+            <span>手描きで描く</span>
+            <span className="text-[9px] font-normal opacity-80">指/Pencilで</span>
           </Link>
           <Link
             href="/assistant"

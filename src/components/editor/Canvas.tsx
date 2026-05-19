@@ -63,6 +63,9 @@ export function Canvas({
     addText,
     addDimension,
     addSketch,
+    sketchColor,
+    sketchThickness,
+    sketchEraser,
     deleteElement,
     setStageSize,
     setOffset,
@@ -225,6 +228,23 @@ export function Canvas({
     }
 
     if (tool === "sketch") {
+      // 消しゴムモード: タップした手描き線を消す
+      if (sketchEraser) {
+        const shape = stage.getIntersection({ x: pos.x, y: pos.y });
+        let node: Konva.Node | null = shape;
+        while (node && node !== stage) {
+          const id = node.getAttr("data-element-id");
+          if (id) {
+            const el = useEditor.getState().elements.find((x) => x.id === id);
+            if (el?.type === "sketch") {
+              deleteElement(id as string);
+            }
+            break;
+          }
+          node = node.getParent();
+        }
+        return;
+      }
       // 手描き開始: スナップせず生の座標を使う
       const raw = toWorld(pos.x, pos.y);
       setSketching(true);
@@ -495,8 +515,8 @@ export function Canvas({
       return (
         <Line
           points={flat}
-          stroke="#991b1b"
-          strokeWidth={Math.max(2, 60 * scale)}
+          stroke={sketchColor}
+          strokeWidth={Math.max(2, sketchThickness * scale)}
           lineCap="round"
           lineJoin="round"
           tension={0.4}

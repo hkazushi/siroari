@@ -12,6 +12,7 @@ import { StampLibrary } from "./StampLibrary";
 import { VisitInfoBar } from "./VisitInfoBar";
 import { QuickStamps } from "./QuickStamps";
 import { CompassOverlay, ScaleBarOverlay } from "./CanvasOverlays";
+import { SketchToolbar } from "./SketchToolbar";
 import {
   ChemicalsDialog,
   TemplatesDialog,
@@ -75,11 +76,13 @@ export function Editor() {
     });
   }, []);
 
-  // ?new=1 が付いてきたら新規マップとして初期化する
+  // ?new=1 で新規初期化、?tool=sketch で手描きツール起動
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      useEditor.getState().newProject();
-      // URL をクリーンに保つため new=1 を消す
+    const isNew = searchParams.get("new") === "1";
+    const startTool = searchParams.get("tool");
+    if (isNew || startTool) {
+      if (isNew) useEditor.getState().newProject();
+      if (startTool === "sketch") useEditor.getState().setTool("sketch");
       router.replace("/editor");
     }
   }, [searchParams, router]);
@@ -96,6 +99,7 @@ export function Editor() {
     stageSize,
     elements,
     applyTemplate,
+    tool,
   } = useEditor();
 
   const onSave = useCallback(async () => {
@@ -302,23 +306,35 @@ export function Editor() {
           <ScaleBarOverlay />
           <QuickStamps />
 
-          {/* 手描きがある時の「AI で整形」フローティングボタン */}
-          {elements.some((e) => e.type === "sketch") && (
-            <button
-              onClick={() => {
-                const snap = handleRef.current?.exportPNG();
-                if (snap) {
-                  setAiCanvasSnap(snap);
-                  setAiMode("canvas");
-                  setDialog("ai");
-                }
-              }}
-              className="absolute right-3 bottom-16 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-2 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
-              title="手描きの内容を AI が解析して整った間取りに整形します"
-            >
-              ✨ 手描きを AI で整形
-            </button>
-          )}
+          {/* 手描きツール選択時のサブツールバー */}
+          <SketchToolbar
+            onAIClean={() => {
+              const snap = handleRef.current?.exportPNG();
+              if (snap) {
+                setAiCanvasSnap(snap);
+                setAiMode("canvas");
+                setDialog("ai");
+              }
+            }}
+          />
+
+          {/* 手描きが残っているのに sketch ツール外にいる時の整形ショートカット */}
+          {elements.some((e) => e.type === "sketch") && tool !== "sketch" && (
+              <button
+                onClick={() => {
+                  const snap = handleRef.current?.exportPNG();
+                  if (snap) {
+                    setAiCanvasSnap(snap);
+                    setAiMode("canvas");
+                    setDialog("ai");
+                  }
+                }}
+                className="absolute right-3 bottom-16 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-2 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
+                title="手描きの内容を AI が解析して整った間取りに整形します"
+              >
+                ✨ 手描きを AI で整形
+              </button>
+            )}
 
           {/* Mobile sidebar toggles */}
           <button
@@ -353,12 +369,22 @@ export function Editor() {
 
       {/* Empty-state hint（モバイルでサイドバーと重ならない位置） */}
       {elements.length === 0 && !sidebarOpen && !propsOpen && (
-        <div className="pointer-events-auto absolute left-1/2 bottom-20 z-10 flex -translate-x-1/2 flex-col gap-2 sm:bottom-auto sm:top-4">
+        <div className="pointer-events-auto absolute left-1/2 bottom-20 z-10 flex -translate-x-1/2 flex-col items-stretch gap-2 sm:bottom-auto sm:top-4">
           <button
-            onClick={() => setDialog("ai")}
-            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
+            onClick={() => {
+              setAiMode("text");
+              setAiCanvasSnap(null);
+              setDialog("ai");
+            }}
+            className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:from-amber-600 hover:to-rose-600"
           >
             ✨ AI に音声で間取りを描かせる
+          </button>
+          <button
+            onClick={() => useEditor.getState().setTool("sketch")}
+            className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-rose-500 to-purple-600 px-5 py-2 text-sm font-bold text-white shadow-lg hover:from-rose-600 hover:to-purple-700"
+          >
+            ✍️ 手描きで描いて AI 整形
           </button>
           <button
             onClick={() => setDialog("templates")}
