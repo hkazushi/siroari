@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { HomeDashboard } from "@/components/HomeDashboard";
 import {
   MapPin,
-  FolderOpen,
   Bug,
   ShieldCheck,
   Smartphone,
@@ -19,6 +19,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-white">
       <Header />
+      <HomeDashboard />
       <Hero />
       <Features />
       <Workflow />
@@ -31,7 +32,7 @@ export default function Home() {
 function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6">
         <Link href="/" className="flex items-center gap-2 hover:opacity-90">
           <Logo size={40} withText={false} />
           <div className="leading-tight">
@@ -43,13 +44,13 @@ function Header() {
             </div>
           </div>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Link
             href="/customers"
             className="hidden rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:inline-flex"
           >
             <Users size={16} className="mr-1.5" />
-            顧客台帳
+            顧客
           </Link>
           <Link
             href="/calendar"
@@ -61,7 +62,7 @@ function Header() {
           </Link>
           <Link
             href="/settings"
-            className="hidden rounded-md border border-slate-300 px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex"
+            className="rounded-md border border-slate-300 px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             title="設定"
           >
             <Settings size={16} />
@@ -71,7 +72,7 @@ function Header() {
             className="inline-flex items-center gap-1.5 rounded-md bg-[#991b1b] px-3 py-2 text-sm font-bold text-white shadow hover:bg-[#7f1d1d] sm:px-4"
           >
             <MapPin size={16} />
-            <span>マップを開く</span>
+            <span>マップ</span>
           </Link>
         </div>
       </div>
@@ -81,45 +82,23 @@ function Header() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-[#1e3a5f] via-[#1e293b] to-[#0f172a] py-12 sm:py-16 lg:py-20">
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#1e3a5f] via-[#1e293b] to-[#0f172a] py-10 sm:py-14">
       <div className="absolute left-0 right-0 top-0 h-1 bg-[#991b1b]" />
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-center text-center">
-          <div className="rounded-full bg-white p-3 shadow-2xl sm:p-4">
-            <Logo size={180} withText={false} />
+          <div className="rounded-full bg-white p-2 shadow-2xl sm:p-3">
+            <Logo size={120} withText={false} />
           </div>
-          <div className="mt-6 text-[11px] font-bold tracking-[0.3em] text-amber-300">
+          <div className="mt-4 text-[10px] font-bold tracking-[0.3em] text-amber-300">
             PEST CONTROL
           </div>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
             東山メンテナンス
           </h1>
-          <p className="mt-3 text-sm text-slate-300 sm:text-base">
+          <p className="mt-2 text-sm text-slate-300">
             害虫から、快適な暮らしを守る。
           </p>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
-            現場の見取り図と害虫発見ポイント・施工記録を、
-            <br className="hidden sm:block" />
-            タブレット 1 枚で完結させる業務アプリです。
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/customers"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#991b1b] px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#7f1d1d] sm:text-base"
-            >
-              <Users size={18} />
-              顧客台帳を開く
-              <ArrowRight size={18} />
-            </Link>
-            <Link
-              href="/editor"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-500 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/10 sm:text-base"
-            >
-              <MapPin size={18} />
-              すぐマップを描く
-            </Link>
-          </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-slate-400 sm:text-xs">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[10px] text-slate-400 sm:text-xs">
             <span className="inline-flex items-center gap-1">
               <ShieldCheck size={14} className="text-amber-300" />
               SAFE &amp; EFFECTIVE
@@ -130,7 +109,7 @@ function Hero() {
             </span>
             <span className="inline-flex items-center gap-1">
               <Save size={14} className="text-amber-300" />
-              オフライン保存
+              クラウド同期
             </span>
           </div>
         </div>
@@ -163,17 +142,17 @@ function Features() {
     },
     {
       icon: Save,
-      title: "オフライン保存",
-      desc: "ネット環境が無い建物内部でも作業継続。お客様ごとに複数現場を保存。",
+      title: "クラウド同期",
+      desc: "Supabase で複数端末同期。iPad の現場記録がそのまま事務所 PC に。",
     },
     {
       icon: FileDown,
-      title: "PNG / PDF 出力",
-      desc: "現場マップをワンクリックで PNG / PDF に。報告書・社内共有にそのまま。",
+      title: "PDF / 公開リンク",
+      desc: "報告書 PDF と、お客様向け閲覧専用 URL を発行できます。",
     },
   ];
   return (
-    <section className="bg-slate-50 py-12 sm:py-16">
+    <section className="bg-slate-50 py-10 sm:py-14">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="text-center">
           <div className="text-xs font-bold tracking-wider text-[#991b1b]">
@@ -183,7 +162,7 @@ function Features() {
             このアプリでできること
           </h2>
         </div>
-        <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((f) => (
             <div
               key={f.title}
@@ -211,10 +190,10 @@ function Workflow() {
     { n: "1", t: "見取り図作成", d: "現場で建物の図面を描く" },
     { n: "2", t: "害虫マーキング", d: "発見箇所をスタンプで記録" },
     { n: "3", t: "施工記録", d: "毒餌・散布範囲を記録" },
-    { n: "4", t: "報告書出力", d: "PDF 出力 → お客様共有" },
+    { n: "4", t: "報告書出力", d: "PDF / 公開リンクで提出" },
   ];
   return (
-    <section className="bg-white py-12 sm:py-16">
+    <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="text-center">
           <div className="text-xs font-bold tracking-wider text-[#991b1b]">
@@ -224,7 +203,7 @@ function Workflow() {
             現場到着から報告書発行まで、1 台で。
           </h2>
         </div>
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {steps.map((s, i) => (
             <div key={s.n} className="relative">
               <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -254,7 +233,7 @@ function Workflow() {
 
 function CTASection() {
   return (
-    <section className="bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] py-12 sm:py-16">
+    <section className="bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] py-10 sm:py-14">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <h2 className="text-2xl font-bold text-white sm:text-3xl">
           現場でも、事務所でも、すぐ使える。
@@ -271,11 +250,11 @@ function CTASection() {
             今すぐ施工マップを開く
           </Link>
           <Link
-            href="/projects"
+            href="/customers"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-500 bg-transparent px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 sm:text-base"
           >
-            <FolderOpen size={18} />
-            過去の現場一覧
+            <Users size={18} />
+            顧客台帳
           </Link>
         </div>
       </div>

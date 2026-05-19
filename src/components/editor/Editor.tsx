@@ -21,8 +21,10 @@ import {
 } from "./Dialogs";
 import { HeatmapDialog } from "./HeatmapDialog";
 import { saveVisit, loadVisit, listVisits, deleteVisit } from "@/lib/db";
+import { cloudSaveVisit } from "@/lib/sync";
 import { BUILDING_TEMPLATES } from "@/lib/templates";
 import { Logo } from "@/components/Logo";
+import { Home as HomeIcon, Users } from "lucide-react";
 import type { CanvasHandle } from "./Canvas";
 import type { Visit } from "@/types";
 
@@ -77,9 +79,22 @@ export function Editor() {
       useEditor.setState({ projectId: id });
     }
     await saveVisit(p);
-    // toast-ish
+    // 同時にクラウドにも保存（クラウド未設定なら no-op）
+    await cloudSaveVisit(p);
     alert("保存しました");
   }, [projectId, serialize]);
+
+  const onSaveAndExit = useCallback(async () => {
+    const p = serialize();
+    if (!projectId) {
+      const id = nanoid(10);
+      p.id = id;
+      useEditor.setState({ projectId: id });
+    }
+    await saveVisit(p);
+    await cloudSaveVisit(p);
+    router.push("/");
+  }, [projectId, router, serialize]);
 
   const onReport = useCallback(async () => {
     // Save first so /report can load it
@@ -180,18 +195,46 @@ export function Editor() {
   return (
     <div className="flex h-dvh w-full flex-col bg-slate-50">
       {/* Brand header */}
-      <div className="flex items-center gap-3 border-b-2 border-[#991b1b] bg-white px-3 py-2">
-        <Link href="/" className="hover:opacity-80">
-          <Logo size={36} withText={false} />
-        </Link>
-        <div className="leading-tight">
-          <div className="text-[13px] font-bold text-[#1e3a5f]">
-            東山メンテナンス
+      <div className="flex items-center gap-2 border-b-2 border-[#991b1b] bg-white px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+        <Link
+          href="/"
+          className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-slate-100"
+          title="ホームへ戻る"
+        >
+          <Logo size={32} withText={false} />
+          <div className="hidden leading-tight sm:block">
+            <div className="text-[13px] font-bold text-[#1e3a5f]">
+              東山メンテナンス
+            </div>
+            <div className="text-[10px] text-slate-500">
+              害虫駆除 / 現場マップ
+            </div>
           </div>
-          <div className="text-[10px] text-slate-500">害虫駆除 / 現場マップ</div>
-        </div>
-        <div className="ml-auto hidden text-[11px] font-semibold text-[#991b1b] sm:block">
-          害虫から、快適な暮らしを守る。
+        </Link>
+        <div className="ml-auto flex items-center gap-1">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            title="ホームへ"
+          >
+            <HomeIcon size={14} />
+            <span className="hidden sm:inline">ホーム</span>
+          </Link>
+          <Link
+            href="/customers"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            title="顧客台帳"
+          >
+            <Users size={14} />
+            <span className="hidden sm:inline">顧客</span>
+          </Link>
+          <button
+            onClick={onSaveAndExit}
+            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+            title="保存してホームへ"
+          >
+            保存して戻る
+          </button>
         </div>
       </div>
 

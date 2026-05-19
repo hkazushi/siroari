@@ -14,6 +14,8 @@ import {
 import { useEditor } from "@/lib/store";
 import type { Site, Customer, Visit } from "@/types";
 import { Logo } from "@/components/Logo";
+import { VoiceTextArea } from "@/components/VoiceTextArea";
+import { EntityPhotoSection } from "@/components/EntityPhotoSection";
 import {
   ArrowLeft,
   MapPin,
@@ -223,6 +225,16 @@ export default function SiteDetailPage() {
               前回マップをコピーして開始
             </button>
           </div>
+
+          <EntityPhotoSection
+            photos={site.photos ?? []}
+            pathPrefix={`sites/${site.id}`}
+            onChange={async (next) => {
+              await saveSite({ ...site, photos: next });
+              await refresh();
+            }}
+            emptyHint="現場の外観・玄関・鍵保管場所などの写真を保存できます"
+          />
         </section>
 
         {/* Visit history */}
@@ -438,13 +450,13 @@ function EditSiteDialog({
           </label>
           <label className="block">
             <div className="mb-1 text-[11px] font-semibold text-slate-600">
-              現場メモ
+              現場メモ（音声入力可）
             </div>
-            <textarea
+            <VoiceTextArea
               value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              onChange={(v) => setForm({ ...form, notes: v })}
               rows={3}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="鍵の保管場所・注意事項・周辺環境など"
             />
           </label>
         </div>

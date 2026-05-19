@@ -14,6 +14,8 @@ import {
 } from "@/lib/db";
 import type { Customer, Site, Visit } from "@/types";
 import { Logo } from "@/components/Logo";
+import { VoiceTextArea } from "@/components/VoiceTextArea";
+import { EntityPhotoSection } from "@/components/EntityPhotoSection";
 import {
   ArrowLeft,
   Building2,
@@ -217,6 +219,15 @@ export default function CustomerDetailPage() {
               </div>
             </div>
           </div>
+
+          <EntityPhotoSection
+            photos={customer.photos ?? []}
+            pathPrefix={`customers/${customer.id}`}
+            onChange={async (next) => {
+              await saveCustomer({ ...customer, photos: next });
+              await refresh();
+            }}
+          />
         </section>
 
         {/* Sites list */}
@@ -408,12 +419,12 @@ function EditCustomerDialog({
             type="email"
           />
         </Field>
-        <Field label="メモ">
-          <textarea
+        <Field label="メモ（音声入力可）">
+          <VoiceTextArea
             value={form.notes ?? ""}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            onChange={(v) => setForm({ ...form, notes: v })}
             rows={3}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            placeholder="顧客の特記事項、好み、注意点など"
           />
         </Field>
       </div>

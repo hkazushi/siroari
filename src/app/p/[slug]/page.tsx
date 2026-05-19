@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getPublicVisit } from "@/lib/sync";
 import { isCloudConfigured } from "@/lib/supabase";
+import { photoSrc } from "@/lib/photoStorage";
 import type { Visit, Customer, Site, Stamp } from "@/types";
 import { stampDefOf } from "@/lib/stamps";
 import { formatArea, polygonArea } from "@/lib/utils";
@@ -272,6 +273,9 @@ export default function PublicReportPage() {
           </section>
         )}
 
+        {/* Photos */}
+        <PhotosBlock visit={visit} />
+
         {/* Signatures */}
         <section className="mt-4 grid grid-cols-2 gap-3">
           <SignatureBox label="お客様 ご確認" sig={visit.customerSignature} />
@@ -285,6 +289,63 @@ export default function PublicReportPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+function PhotosBlock({ visit }: { visit: Visit }) {
+  type LP = { src: string; location: string; kind?: "before" | "after" | "other" };
+  const photos: LP[] = [];
+  for (const el of visit.elements) {
+    if (el.type !== "stamp" || !el.photos) continue;
+    const def = stampDefOf(el.stampType);
+    for (const p of el.photos) {
+      const src = photoSrc(p);
+      if (!src) continue;
+      photos.push({
+        src,
+        location: `${def.label}${el.note ? ` / ${el.note}` : ""}`,
+        kind: p.kind,
+      });
+    }
+  }
+  if (photos.length === 0) return null;
+  return (
+    <section className="mt-4">
+      <Title>現場写真</Title>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {photos.map((p, i) => {
+          const isBefore = p.kind === "before";
+          const isAfter = p.kind === "after";
+          return (
+            <div
+              key={i}
+              className="overflow-hidden rounded border border-slate-200"
+            >
+              <div
+                className={`px-1.5 py-0.5 text-[9px] font-bold text-white ${
+                  isBefore
+                    ? "bg-[#991b1b]"
+                    : isAfter
+                      ? "bg-emerald-600"
+                      : "bg-[#1e3a5f]"
+                }`}
+              >
+                {isBefore ? "施工前" : isAfter ? "施工後" : "現場"}
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.src}
+                alt={p.location}
+                className="aspect-video w-full object-cover"
+              />
+              <div className="px-1.5 py-1 text-[9px] text-slate-600">
+                {p.location}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

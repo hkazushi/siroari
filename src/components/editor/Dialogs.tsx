@@ -15,9 +15,9 @@ import {
   type CustomTemplate,
   type CustomChemical,
 } from "@/lib/db";
-import type { ChemicalUse, AnyElement } from "@/types";
-import { Trash2, Plus, Eraser, Star, Save as SaveIcon, Mic, MicOff } from "lucide-react";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
+import type { ChemicalUse, AnyElement, StampPhoto, PhotoKind } from "@/types";
+import { Trash2, Plus, Eraser, Star, Save as SaveIcon } from "lucide-react";
+import { processAndUploadPhoto, photoSrc } from "@/lib/photoStorage";
 
 // ===== Shared shell =====
 export function DialogShell({
@@ -872,53 +872,85 @@ export function StampPhotoDialog({
 }) {
   const ed = useEditor();
   const stamp = ed.elements.find((e) => e.id === stampId);
+  const [uploading, setUploading] = useState(false);
+  const [defaultKind, setDefaultKind] = useState<PhotoKind>("before");
   if (!stamp || stamp.type !== "stamp") return null;
   const photos = stamp.photos ?? [];
 
   const onPick = async (file: File) => {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-    // Resize: limit to ~1024px on longest side to keep IndexedDB sane
-    const img = new Image();
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = rej;
-      img.src = dataUrl;
-    });
-    const maxSide = 1024;
-    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-    const w = Math.round(img.width * scale);
-    const h = Math.round(img.height * scale);
-    const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(img, 0, 0, w, h);
-    const resized = c.toDataURL("image/jpeg", 0.85);
-    ed.attachPhotoToStamp(stampId, {
-      id: nanoid(8),
-      data: resized,
-      takenAt: Date.now(),
-    });
+    setUploading(true);
+    try {
+      const result = await processAndUploadPhoto(file, `visits/${ed.projectId ?? "draft"}/stamps/${stampId}`);
+      ed.attachPhotoToStamp(stampId, {
+        id: nanoid(8),
+        ...result,
+        kind: defaultKind,
+        takenAt: Date.now(),
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
+  const updatePhotoKind = (photoId: string, kind: PhotoKind) => {
+    const idx = ed.elements.findIndex((e) => e.id === stampId);
+    if (idx === -1) return;
+    const el = ed.elements[idx];
+    if (el.type !== "stamp") return;
+    const nextPhotos = (el.photos ?? []).map((p) =>
+      p.id === photoId ? { ...p, kind } : p,
+    );
+    ed.updateElement(stampId, { photos: nextPhotos });
+  };
+
+  const beforePhotos = photos.filter((p) => p.kind === "before");
+  const afterPhotos = photos.filter((p) => p.kind === "after");
+  const otherPhotos = photos.filter((p) => !p.kind || p.kind === "other");
+
   return (
-    <DialogShell title="現場写真の添付" onClose={onClose} size="lg">
+    <DialogShell title="現場写真の添付（施工前 / 施工後 対応）" onClose={onClose} size="lg">
       <div className="space-y-3 p-4">
         <div className="text-[11px] text-slate-500">
-          このスタンプ箇所の写真を撮影 / 選択して添付できます。
+          このスタンプ箇所の写真を撮影 / 選択して添付できます。撮影前にラベルを選んでください。
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-[#1e3a5f] px-4 py-2 text-sm font-bold text-white hover:bg-[#152a47]">
-          <Plus size={14} /> 写真を撮影 / 選択
+
+        {/* Kind selector */}
+        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+          {(
+            [
+              { v: "before", label: "🔴 施工前" },
+              { v: "after", label: "🟢 施工後" },
+              { v: "other", label: "📷 その他" },
+            ] as { v: PhotoKind; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.v}
+              onClick={() => setDefaultKind(opt.v)}
+              className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold ${
+                defaultKind === opt.v
+                  ? "bg-white text-[#1e3a5f] shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <label
+          className={`inline-flex cursor-pointer items-center gap-2 rounded-md bg-[#1e3a5f] px-4 py-2 text-sm font-bold text-white hover:bg-[#152a47] ${
+            uploading ? "opacity-60" : ""
+          }`}
+        >
+          <Plus size={14} />
+          {uploading
+            ? "アップロード中..."
+            : `「${defaultKind === "before" ? "施工前" : defaultKind === "after" ? "施工後" : "その他"}」として撮影 / 選択`}
           <input
             type="file"
             accept="image/*"
             capture="environment"
+            disabled={uploading}
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -927,28 +959,31 @@ export function StampPhotoDialog({
             }}
           />
         </label>
+
         {photos.length === 0 ? (
           <div className="rounded-lg bg-slate-50 p-6 text-center text-[11px] text-slate-500">
             まだ写真が添付されていません
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {photos.map((p) => (
-              <div key={p.id} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.data}
-                  alt="現場写真"
-                  className="aspect-square w-full rounded border border-slate-200 object-cover"
-                />
-                <button
-                  onClick={() => ed.removePhotoFromStamp(stampId, p.id)}
-                  className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 shadow hover:bg-white"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
+          <div className="space-y-3">
+            <PhotoGroup
+              title="🔴 施工前"
+              photos={beforePhotos}
+              onRemove={(id) => ed.removePhotoFromStamp(stampId, id)}
+              onKindChange={updatePhotoKind}
+            />
+            <PhotoGroup
+              title="🟢 施工後"
+              photos={afterPhotos}
+              onRemove={(id) => ed.removePhotoFromStamp(stampId, id)}
+              onKindChange={updatePhotoKind}
+            />
+            <PhotoGroup
+              title="📷 その他"
+              photos={otherPhotos}
+              onRemove={(id) => ed.removePhotoFromStamp(stampId, id)}
+              onKindChange={updatePhotoKind}
+            />
           </div>
         )}
       </div>
@@ -957,59 +992,61 @@ export function StampPhotoDialog({
   );
 }
 
-// ===== Voice-enabled TextArea =====
-export function VoiceTextArea({
-  value,
-  onChange,
-  rows = 3,
-  placeholder,
+function PhotoGroup({
+  title,
+  photos,
+  onRemove,
+  onKindChange,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  rows?: number;
-  placeholder?: string;
+  title: string;
+  photos: StampPhoto[];
+  onRemove: (id: string) => void;
+  onKindChange: (id: string, kind: PhotoKind) => void;
 }) {
-  const accumulatedRef = useRef(value);
-  useEffect(() => {
-    accumulatedRef.current = value;
-  }, [value]);
-  const voice = useVoiceInput({
-    lang: "ja-JP",
-    onFinal: (t) => {
-      const next = (accumulatedRef.current + (accumulatedRef.current ? " " : "") + t).trim();
-      accumulatedRef.current = next;
-      onChange(next);
-    },
-  });
+  if (photos.length === 0) return null;
   return (
-    <div className="relative">
-      <textarea
-        value={value}
-        onChange={(e) => {
-          accumulatedRef.current = e.target.value;
-          onChange(e.target.value);
-        }}
-        rows={rows}
-        placeholder={placeholder}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 pr-10 text-sm"
-      />
-      {voice.supported && (
-        <button
-          type="button"
-          onClick={() => (voice.listening ? voice.stop() : voice.start())}
-          title={voice.listening ? "停止" : "音声入力（タップして話す）"}
-          className={`absolute right-2 top-2 rounded-full p-1.5 ${
-            voice.listening
-              ? "animate-pulse bg-red-500 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-          }`}
-        >
-          {voice.listening ? <MicOff size={14} /> : <Mic size={14} />}
-        </button>
-      )}
+    <div>
+      <div className="mb-1 text-[11px] font-bold text-slate-600">
+        {title} ({photos.length})
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {photos.map((p) => {
+          const src = photoSrc(p);
+          return (
+            <div key={p.id} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt="現場写真"
+                className="aspect-square w-full rounded border border-slate-200 object-cover"
+              />
+              <select
+                value={p.kind ?? "other"}
+                onChange={(e) =>
+                  onKindChange(p.id, e.target.value as PhotoKind)
+                }
+                className="absolute bottom-1 left-1 rounded bg-white/90 px-1 py-0.5 text-[9px] shadow"
+              >
+                <option value="before">🔴 施工前</option>
+                <option value="after">🟢 施工後</option>
+                <option value="other">📷 その他</option>
+              </select>
+              <button
+                onClick={() => onRemove(p.id)}
+                className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 shadow hover:bg-white"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
+
+import { VoiceTextArea } from "@/components/VoiceTextArea";
+export { VoiceTextArea };
 
 // ===== Helpers =====
 function Field({

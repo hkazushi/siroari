@@ -10,6 +10,7 @@ import {
 } from "@/lib/db";
 import { isCloudConfigured } from "@/lib/supabase";
 import { publishVisit, unpublishVisit } from "@/lib/sync";
+import { photoSrc } from "@/lib/photoStorage";
 import type { Visit, Customer, Site, Stamp } from "@/types";
 import { stampDefOf } from "@/lib/stamps";
 import { formatArea, polygonArea } from "@/lib/utils";
@@ -363,6 +364,9 @@ export default function ReportPage() {
           </section>
         )}
 
+        {/* Photos */}
+        <PhotosSection visit={visit} />
+
         {/* Signatures */}
         <section className="mt-6 grid grid-cols-2 gap-4 break-inside-avoid">
           <SignatureBox
@@ -405,6 +409,118 @@ export default function ReportPage() {
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+function PhotosSection({ visit }: { visit: Visit }) {
+  type LabeledPhoto = {
+    src: string;
+    location: string;
+    kind?: "before" | "after" | "other";
+  };
+  const photos: LabeledPhoto[] = [];
+  for (const el of visit.elements) {
+    if (el.type !== "stamp") continue;
+    if (!el.photos || el.photos.length === 0) continue;
+    const def = stampDefOf(el.stampType);
+    for (const p of el.photos) {
+      const src = photoSrc(p);
+      if (!src) continue;
+      photos.push({
+        src,
+        location: `${def.label}${el.note ? ` / ${el.note}` : ""}`,
+        kind: p.kind,
+      });
+    }
+  }
+  if (photos.length === 0) return null;
+  const before = photos.filter((p) => p.kind === "before");
+  const after = photos.filter((p) => p.kind === "after");
+  const other = photos.filter((p) => !p.kind || p.kind === "other");
+  return (
+    <section className="mt-4 break-inside-avoid">
+      <SectionTitle>6. 現場写真</SectionTitle>
+      {before.length > 0 && after.length > 0 && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] font-bold text-slate-600">
+            施工前 / 施工後 比較
+          </div>
+          <div className="space-y-2">
+            {Math.min(before.length, after.length) > 0 &&
+              Array.from({
+                length: Math.min(before.length, after.length),
+              }).map((_, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-2 gap-2 break-inside-avoid"
+                >
+                  <PhotoBlock label="施工前" photo={before[i]} red />
+                  <PhotoBlock label="施工後" photo={after[i]} />
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+      {(before.length > 0 || after.length > 0) &&
+        (before.length !== after.length || other.length > 0) && (
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[
+              ...before.slice(Math.min(before.length, after.length)),
+              ...after.slice(Math.min(before.length, after.length)),
+              ...other,
+            ].map((p, i) => (
+              <PhotoBlock
+                key={i}
+                label={
+                  p.kind === "before"
+                    ? "施工前"
+                    : p.kind === "after"
+                      ? "施工後"
+                      : "現場"
+                }
+                photo={p}
+                red={p.kind === "before"}
+              />
+            ))}
+          </div>
+        )}
+      {before.length === 0 && after.length === 0 && other.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {other.map((p, i) => (
+            <PhotoBlock key={i} label="現場" photo={p} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PhotoBlock({
+  label,
+  photo,
+  red,
+}: {
+  label: string;
+  photo: { src: string; location: string };
+  red?: boolean;
+}) {
+  return (
+    <div className="break-inside-avoid rounded border border-slate-200">
+      <div
+        className={`px-1.5 py-0.5 text-[9px] font-bold text-white ${red ? "bg-[#991b1b]" : "bg-[#1e3a5f]"}`}
+      >
+        {label}
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={photo.src}
+        alt={label}
+        className="aspect-video w-full object-cover"
+      />
+      <div className="px-1.5 py-1 text-[9px] text-slate-600">
+        {photo.location}
+      </div>
     </div>
   );
 }

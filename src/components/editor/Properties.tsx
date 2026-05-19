@@ -3,6 +3,8 @@
 import { useEditor } from "@/lib/store";
 import { formatArea, polygonArea } from "@/lib/utils";
 import { stampDefOf } from "@/lib/stamps";
+import { photoSrc } from "@/lib/photoStorage";
+import { VoiceTextArea } from "@/components/VoiceTextArea";
 import type { AnyElement, Room, Stamp, TextLabel, Wall } from "@/types";
 
 export function Properties() {
@@ -261,20 +263,19 @@ function StampProps({ el, onChange }: { el: Stamp; onChange: (p: Partial<Stamp>)
         onChange={(n) => onChange({ rotation: n })}
       />
       <label className="block text-xs">
-        <div className="mb-1 text-slate-500">メモ</div>
-        <textarea
+        <div className="mb-1 text-slate-500">メモ（音声入力 OK）</div>
+        <VoiceTextArea
           value={el.note ?? ""}
-          onChange={(e) => onChange({ note: e.target.value })}
+          onChange={(v) => onChange({ note: v })}
           rows={2}
           placeholder="例: 床下の隙間から侵入跡あり"
-          className="w-full rounded border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
       <button
         onClick={openPhoto}
         className="flex w-full items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-[#1e3a5f] hover:bg-slate-50"
       >
-        📷 写真 ({photoCount})
+        📷 写真 ({photoCount}) — 施工前 / 施工後
       </button>
       {photoCount > 0 && (
         <div className="grid grid-cols-3 gap-1">
@@ -282,10 +283,17 @@ function StampProps({ el, onChange }: { el: Stamp; onChange: (p: Partial<Stamp>)
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={p.id}
-              src={p.data}
+              src={photoSrc(p)}
               alt="photo"
-              className="aspect-square w-full rounded object-cover"
+              className="aspect-square w-full cursor-pointer rounded object-cover"
               onClick={openPhoto}
+              title={
+                p.kind === "before"
+                  ? "施工前"
+                  : p.kind === "after"
+                    ? "施工後"
+                    : "その他"
+              }
             />
           ))}
         </div>

@@ -54,9 +54,28 @@ export type StampType =
   | "nest"
   | "moisture";
 
+export type PhotoKind = "before" | "after" | "other";
+
 export type StampPhoto = {
   id: string;
-  data: string; // base64 data URL
+  /** base64 data URL（オフライン or 旧データ） */
+  data?: string;
+  /** Supabase Storage の公開 URL（クラウド時） */
+  url?: string;
+  /** Storage 上のパス（削除用） */
+  storagePath?: string;
+  caption?: string;
+  /** 施工前 / 施工後 / その他 */
+  kind?: PhotoKind;
+  takenAt: number;
+};
+
+/** 顧客・現場に紐づける汎用写真（外観・鍵保管場所メモなど） */
+export type EntityPhoto = {
+  id: string;
+  data?: string;
+  url?: string;
+  storagePath?: string;
   caption?: string;
   takenAt: number;
 };
@@ -113,6 +132,7 @@ export type Customer = {
   contactEmail?: string;
   contractType?: "spot" | "monthly" | "quarterly" | "annual";
   notes?: string;
+  photos?: EntityPhoto[];
   createdAt: number;
   updatedAt: number;
 };
@@ -126,6 +146,7 @@ export type Site = {
   buildingType?: string; // 住宅 / 飲食店 / 倉庫 / オフィス / 病院 etc
   floorArea?: number; // ㎡
   notes?: string;
+  photos?: EntityPhoto[];
   createdAt: number;
   updatedAt: number;
 };
