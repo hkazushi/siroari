@@ -181,16 +181,16 @@ export function Toolbar(props: ToolbarActions) {
           <button
             key={t.id}
             className={cn(
-              "flex h-9 min-w-9 items-center gap-1 rounded px-2 text-xs transition-colors",
+              "flex min-h-12 min-w-12 flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1 text-[10px] font-semibold transition-colors sm:h-9 sm:min-h-9 sm:min-w-9 sm:flex-row sm:gap-1 sm:px-2 sm:py-0 sm:text-xs",
               tool === t.id
-                ? "bg-[#991b1b] text-white"
+                ? "bg-[#991b1b] text-white shadow-sm"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200",
             )}
             onClick={() => setTool(t.id)}
             title={`${t.label}${t.hotkey ? ` (${t.hotkey})` : ""}`}
           >
-            <t.icon size={16} />
-            <span className="hidden sm:inline">{t.label}</span>
+            <t.icon size={18} className="shrink-0 sm:!h-4 sm:!w-4" />
+            <span className="leading-tight">{t.label}</span>
           </button>
         ))}
 
@@ -311,14 +311,14 @@ function IconBtn({
       disabled={disabled}
       title={title ?? label}
       className={cn(
-        "flex h-9 items-center gap-1 rounded px-2 text-xs",
+        "flex h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 text-[11px] font-semibold sm:h-9 sm:min-w-9 sm:text-xs",
         disabled
           ? "bg-slate-50 text-slate-300"
           : "bg-slate-100 text-slate-700 hover:bg-slate-200",
       )}
     >
       <Icon size={16} />
-      {label && <span className="hidden sm:inline">{label}</span>}
+      {label && <span>{label}</span>}
     </button>
   );
 }

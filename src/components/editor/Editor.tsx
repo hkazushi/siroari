@@ -188,6 +188,13 @@ export function Editor() {
     }
   }, []);
 
+  // 何かを選択したら自動でプロパティパネルを開く（モバイルでも見える化）
+  useEffect(() => {
+    if (selectedIds.length > 0 && !propsOpen) {
+      queueMicrotask(() => setPropsOpen(true));
+    }
+  }, [selectedIds.length, propsOpen]);
+
   // Hotkeys
   useEffect(() => {
     const h = (ev: KeyboardEvent) => {
@@ -352,15 +359,49 @@ export function Editor() {
 
           {/* Mobile overlays */}
           {sidebarOpen && (
-            <div className="absolute left-0 top-10 z-20 h-[calc(100%-2.5rem)] w-48 sm:hidden">
+            <div className="absolute left-0 top-10 z-20 h-[calc(100%-2.5rem)] w-52 sm:hidden">
               <StampLibrary />
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="absolute right-1 top-1 rounded-full bg-white p-1 shadow"
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
             </div>
           )}
           {propsOpen && (
-            <div className="absolute right-0 top-10 z-20 h-[calc(100%-2.5rem)] w-64 sm:hidden">
+            <div
+              className="absolute inset-x-0 bottom-0 z-20 max-h-[70vh] overflow-y-auto rounded-t-2xl border-t-2 border-[#991b1b] bg-white shadow-2xl sm:hidden"
+              style={{ animation: "slideUp 200ms ease-out" }}
+            >
+              <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-3 py-1.5">
+                <div className="text-xs font-bold text-[#1e3a5f]">
+                  {selectedIds.length > 0
+                    ? `選択中: ${selectedIds.length} 要素`
+                    : "プロジェクト情報"}
+                </div>
+                <button
+                  onClick={() => setPropsOpen(false)}
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100"
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </div>
               <Properties />
             </div>
           )}
+          <style jsx>{`
+            @keyframes slideUp {
+              from {
+                transform: translateY(100%);
+              }
+              to {
+                transform: translateY(0);
+              }
+            }
+          `}</style>
         </div>
         <div className={`hidden shrink-0 sm:block ${propsOpen ? "" : "hidden"}`}>
           <Properties />
