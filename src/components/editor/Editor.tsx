@@ -76,6 +76,30 @@ export function Editor() {
     });
   }, []);
 
+  // アプリ起動時に自動でクラウドから最新データを取得
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { isCloudConfigured } = await import("@/lib/supabase");
+        if (!isCloudConfigured()) return;
+        const { pullAllFromCloud } = await import("@/lib/sync");
+        const last = Number(localStorage.getItem("lastAutoPullAt") ?? 0);
+        // 5 分以内に既にプル済みならスキップ
+        if (Date.now() - last < 5 * 60 * 1000) return;
+        await pullAllFromCloud();
+        if (!cancelled) {
+          localStorage.setItem("lastAutoPullAt", String(Date.now()));
+        }
+      } catch (e) {
+        console.warn("auto pull failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // ?new=1 で新規初期化、?tool=sketch で手描きツール起動
   useEffect(() => {
     const isNew = searchParams.get("new") === "1";

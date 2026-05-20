@@ -10,6 +10,9 @@ import {
   listCustomChemicals,
   deleteCustomTemplate,
   deleteCustomChemical,
+  listCustomers,
+  listSites,
+  listVisits,
   type CustomTemplate,
   type CustomChemical,
 } from "@/lib/db";
@@ -41,6 +44,11 @@ export default function SettingsPage() {
     msg: string;
     error?: boolean;
   } | null>(null);
+  const [counts, setCounts] = useState<{
+    customers: number;
+    sites: number;
+    visits: number;
+  }>({ customers: 0, sites: 0, visits: 0 });
 
   const refresh = async () => {
     const [t, c, data] = await Promise.all([
@@ -58,22 +66,29 @@ export default function SettingsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [t, c, data] = await Promise.all([
+      const [t, c, data, cs, ss, vs] = await Promise.all([
         listCustomTemplates(),
         listCustomChemicals(),
         exportAllData(),
+        listCustomers(),
+        listSites(),
+        listVisits(),
       ]);
       if (cancelled) return;
       setTemplates(t);
       setChemicals(c);
+      setCounts({
+        customers: cs.length,
+        sites: ss.length,
+        visits: vs.length,
+      });
       const json = JSON.stringify(data);
       const kb = (new Blob([json]).size / 1024).toFixed(1);
       setExportSize(`${kb} KB`);
       setCloudConfigured(isCloudConfigured());
       try {
         const ls = localStorage.getItem("lastSyncAt");
-        if (ls)
-          setLastSync({ at: Number(ls), msg: "前回同期: 成功" });
+        if (ls) setLastSync({ at: Number(ls), msg: "前回同期: 成功" });
       } catch {}
     })();
     return () => {
@@ -208,6 +223,50 @@ export default function SettingsPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+        {/* Diagnostic - データ件数 */}
+        <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-2 text-lg font-bold text-[#1e3a5f]">
+            このブラウザに保存されているデータ
+          </h2>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-[10px] font-semibold text-slate-500">
+                顧客
+              </div>
+              <div className="mt-1 text-3xl font-black text-[#1e3a5f]">
+                {counts.customers}
+              </div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-[10px] font-semibold text-slate-500">
+                現場
+              </div>
+              <div className="mt-1 text-3xl font-black text-[#1e3a5f]">
+                {counts.sites}
+              </div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-[10px] font-semibold text-slate-500">
+                訪問記録
+              </div>
+              <div className="mt-1 text-3xl font-black text-[#1e3a5f]">
+                {counts.visits}
+              </div>
+            </div>
+          </div>
+          {counts.customers + counts.sites + counts.visits === 0 && (
+            <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+              ⚠️ このブラウザにはデータがありません。クラウド同期済みなら「ダウンロードのみ」で復旧できる可能性があります。別の URL / ブラウザ / 端末で作業していた可能性もあります。
+            </div>
+          )}
+          <div className="mt-2 text-[10px] text-slate-500">
+            現在の URL:{" "}
+            <code className="rounded bg-slate-100 px-1">
+              {typeof window !== "undefined" ? window.location.host : ""}
+            </code>
+          </div>
+        </section>
+
         {/* Cloud Sync */}
         <section
           className={`rounded-xl p-5 shadow-sm ${

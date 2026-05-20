@@ -37,6 +37,22 @@ export function HomeDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // 1. 起動時にクラウドから自動同期（端末跨ぎでデータが見える化）
+      try {
+        const { isCloudConfigured } = await import("@/lib/supabase");
+        if (isCloudConfigured()) {
+          const last = Number(localStorage.getItem("lastAutoPullAt") ?? 0);
+          if (Date.now() - last > 5 * 60 * 1000) {
+            const { pullAllFromCloud } = await import("@/lib/sync");
+            await pullAllFromCloud();
+            localStorage.setItem("lastAutoPullAt", String(Date.now()));
+          }
+        }
+      } catch (e) {
+        console.warn("home auto pull failed", e);
+      }
+
+      // 2. ローカルから表示用データ取得
       const [customers, sites, visits] = await Promise.all([
         listCustomers(),
         listSites(),
