@@ -93,9 +93,19 @@ export function polygonCentroid(points: { x: number; y: number }[]): {
   return { x: cx / (6 * a), y: cy / (6 * a) };
 }
 
-// mm² -> 畳 (1畳 ≒ 1.62 m² = 1,620,000 mm²)
+// mm² -> 畳（中京間: 910mm × 1820mm = 1,656,200 mm² ≒ 1.6562 m²）
+// 当アプリは 910mm 半間モジュールを採用しているため、中京間サイズが
+// 実際の部屋寸法と一致する。
+// （不動産表示用の「1畳 = 1.62 m² の法的最低基準」とは別物）
+const TATAMI_MM2 = 1_656_200;
+const TSUBO_MM2 = TATAMI_MM2 * 2; // 1坪 = 2畳 = 3,312,400 mm² ≒ 3.3124 m²
+
 export function mm2ToTatami(mm2: number): number {
-  return mm2 / 1_620_000;
+  return mm2 / TATAMI_MM2;
+}
+
+export function mm2ToTsubo(mm2: number): number {
+  return mm2 / TSUBO_MM2;
 }
 
 // mm² -> m²
@@ -103,8 +113,17 @@ export function mm2ToM2(mm2: number): number {
   return mm2 / 1_000_000;
 }
 
+/** 面積を「平米 (畳 / 坪)」形式で表示 */
 export function formatArea(mm2: number): string {
   const m2 = mm2ToM2(mm2);
   const jo = mm2ToTatami(mm2);
-  return `${m2.toFixed(2)}㎡ (${jo.toFixed(1)}畳)`;
+  const tsubo = mm2ToTsubo(mm2);
+  return `${m2.toFixed(2)}㎡ (${jo.toFixed(1)}畳 / ${tsubo.toFixed(2)}坪)`;
+}
+
+/** 狭いスペース用のコンパクト表示 */
+export function formatAreaCompact(mm2: number): string {
+  const m2 = mm2ToM2(mm2);
+  const jo = mm2ToTatami(mm2);
+  return `${m2.toFixed(1)}㎡ (${jo.toFixed(1)}畳)`;
 }
