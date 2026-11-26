@@ -191,7 +191,8 @@ export function CatWalking({ width = 150, dir = 1 }: { width?: number; dir?: 1 |
 type Pose = { mode: "sit" | "walk"; x: number; dir: 1 | -1; dur: number };
 
 /**
- * 背景のあかちゃん。右下に座っていて、ときどき画面の下を歩いて別の場所に座り直す。
+ * 画面下のあかちゃん。内容の手前（z-20。ヘッダー z-30・ダイアログ z-50 より下）に出す。
+ * 右下に座っていて、ときどき画面の下を歩いて別の場所に座り直す。
  * タップするとひとこと。「動きを減らす」設定の端末では歩かない。
  */
 export function BackgroundCat() {
@@ -271,7 +272,7 @@ export function BackgroundCat() {
   const w = pose.mode === "walk" ? walkW : sitW;
   return (
     <div
-      className="pointer-events-none fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 z-0 select-none md:bottom-2 print:hidden"
+      className="pointer-events-none fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 z-20 select-none md:bottom-2 print:hidden"
       style={{
         transform: `translateX(${pose.x}px)`,
         transition: pose.mode === "walk" ? `transform ${pose.dur}s linear` : "none",
@@ -291,7 +292,8 @@ export function BackgroundCat() {
       )}
       <div
         key={hop}
-        className={cn("pointer-events-auto cursor-pointer", hop > 0 && "cat-hop")}
+        // 歩いている間はクリックを素通りさせる（下のボタンを邪魔しない）。座っているときはタップでひとこと
+        className={cn(pose.mode === "sit" ? "pointer-events-auto cursor-pointer" : "pointer-events-none", hop > 0 && "cat-hop")}
         onClick={poke}
         role="button"
         aria-label={`${CAT_NAME}（サビ猫）`}

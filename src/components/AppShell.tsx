@@ -109,7 +109,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
 
       <BackgroundCat />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-5">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 pt-5 pb-28 md:pb-36">
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="font-bold">データを読み込めませんでした</p>

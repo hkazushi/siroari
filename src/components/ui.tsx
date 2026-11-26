@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -175,8 +176,9 @@ export function Modal({
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  // body 直下に出す（main の重なり順に閉じ込められて、あかちゃん等の下に隠れないように）
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4">
       <div className="absolute inset-0" onClick={onClose} />
       <div
@@ -201,6 +203,8 @@ export function Modal({
         )}
       </div>
     </div>
+  ,
+    document.body,
   );
 }
 
