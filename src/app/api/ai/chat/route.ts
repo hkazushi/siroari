@@ -1,60 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
-import { openRouterChat, MODELS } from "@/lib/openrouter";
+import { MODELS, openRouterChat } from "@/lib/openrouter";
+import { requireUser } from "@/lib/serverAuth";
 
-export const runtime = "nodejs";
+export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `あなたは害虫駆除業界のベテラン専門家アシスタントです。
-ユーザー（害虫駆除業者）の質問に、現場ですぐ役立つ具体的な助言をします。
+type Msg = { role: "user" | "assistant"; content: string };
 
-# 回答の方針
-- 簡潔（最大 400 字程度）、要点を箇条書きで
-- 専門的だが分かりやすい
-- 安全性（薬剤の取り扱い・人体影響・ペット・食品工場）を必ず考慮
-- 法令（建築物衛生法、PRTR 法、毒物及び劇物取締法）を意識
-- 「医師に相談を」「専門家判断を」など免責は最小限
-- 不確実な場合は「現場確認が必要」と正直に
-- 害虫種別ごとの **典型的な対策パターン** と **推奨薬剤の系統** を提示
-  例: ゴキブリ → フィプロニル系ベイト + IGR ピリプロキシフェン
-- 顧客対応（クレーム返答、説明文）の相談にも対応
-- 1 メッセージで完結する回答を心がける
-`;
+export async function POST(req: Request) {
+  const user = await requireUser(req);
+  if (user instanceof Response) return user;
 
-type Msg = {
-  role: "user" | "assistant";
-  content: string;
-};
+  const { messages, context } = (await req.json()) as { messages?: Msg[]; context?: string };
+  if (!messages?.length) return Response.json({ error: "メッセージがありません" }, { status: 400 });
 
-export async function POST(req: NextRequest) {
+  const history = messages
+    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .slice(-12)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+
   try {
-    const { messages } = await req.json();
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "messages が必要です" },
-        { status: 400 },
-      );
-    }
-
-    // 最大 20 件まで（コンテキスト制限）
-    const recent: Msg[] = messages.slice(-20);
-
-    const text = await openRouterChat({
-      model: MODELS.smart,
-      temperature: 0.7,
-      maxTokens: 800,
+    const reply = await openRouterChat({
+      model: MODELS.chat,
+      temperature: 0.3,
+      maxTokens: 1500,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...recent.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        {
+          role: "system",
+          content: `あなたは日本の個人事業主（青色申告）を支える、親しみやすい経理アシスタントです。
+事業者は「東山メンテナンス」（害虫駆除業・個人事業）。
+- 勘定科目の選び方、家事按分、減価償却、消費税（インボイス・2割特例・簡易課税）、確定申告の手順などに、やさしい日本語で具体的に答える。
+- 数字の質問には下の帳簿データを根拠に答える。データに無いことは推測で断定しない。
+- 税制は年ごとに変わるため、判断が分かれる内容や金額が大きい内容は「最終的には税務署や税理士に確認を」と添える。
+- 回答は短めに。箇条書きを使ってよい。
+
+【帳簿データ（アプリが集計）】
+${(context ?? "（なし）").slice(0, 8000)}`,
+        },
+        ...history,
       ],
     });
-
-    return NextResponse.json({ reply: text.trim() });
+    return Response.json({ reply });
   } catch (e) {
-    return NextResponse.json(
-      { error: (e as Error).message },
-      { status: 500 },
-    );
+    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

@@ -18,8 +18,29 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-kbd {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 帳票（請求書・決算書）の印刷 */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .page-break {
+    break-before: page;
+  }
 }

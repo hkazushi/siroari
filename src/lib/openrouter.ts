@@ -3,15 +3,17 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
- * 高品質モデル（JSON 出力安定）
- * - openai/gpt-4o-mini: 安く速く、JSON 出力安定、日本語良好
- * - google/gemini-2.0-flash-001: 同等、若干安め
- * - anthropic/claude-3.5-haiku: 文章品質高め
+ * 使用モデル（2026-11 時点で OpenRouter に存在し、安価なもの）
+ * - vision: 領収書の読み取り（画像入力対応）
+ * - parse : 文章 → 取引データ（JSON は extractJson で取り出す）
+ * - chat  : 会計の相談
+ * モデルは廃止されることがある（gemini-2.0-flash-001 / claude-3.5-haiku は廃止済み）。
+ * 404 / "No endpoints found" が出たら https://openrouter.ai/models で現行 ID を確認する。
  */
 export const MODELS = {
-  fast: "google/gemini-2.0-flash-001",
-  smart: "openai/gpt-4o-mini",
-  writer: "anthropic/claude-3.5-haiku",
+  vision: "anthropic/claude-haiku-5.5",
+  parse: "anthropic/claude-haiku-5.5",
+  chat: "anthropic/claude-haiku-5.5",
 } as const;
 
 type ChatMessage = {
@@ -52,8 +54,8 @@ export async function openRouterChat({
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://gaicyu-madori.vercel.app",
-      "X-Title": "Higashiyama Pest Control App",
+      "HTTP-Referer": "https://higashiyama-kaikei.vercel.app",
+      "X-Title": "Higashiyama Kaikei",
     },
     body: JSON.stringify(body),
   });
@@ -68,4 +70,12 @@ export async function openRouterChat({
     throw new Error("OpenRouter: unexpected response shape");
   }
   return content;
+}
+
+/** モデルの返答から最初の JSON オブジェクトを取り出す（```json で囲まれていても可） */
+export function extractJson<T = unknown>(text: string): T {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("AI の返答に JSON がありません");
+  return JSON.parse(text.slice(start, end + 1)) as T;
 }

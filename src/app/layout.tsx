@@ -1,14 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { AuthGate } from "@/components/AuthGate";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "東山メンテナンス | 害虫駆除 現場マップ",
-  description: "東山メンテナンス専用の現場記録アプリ。見取り図に害虫発見ポイント・毒餌・薬剤散布範囲を記録し、報告書を PDF 出力できます。",
+  title: "会計アプリ | 東山メンテナンス",
+  description: "東山メンテナンスの青色申告用 会計アプリ。取引入力・請求書・決算書・消費税をまとめて管理。",
   manifest: "/manifest.webmanifest",
+  robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "現場マップ",
+    title: "会計アプリ",
   },
   icons: {
     icon: "/logo.png",
@@ -19,8 +22,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#1e3a5f",
 };
 
@@ -31,8 +32,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full antialiased">
-      <body className="m-0 min-h-full flex flex-col bg-slate-50 text-slate-900">
-        {children}
+      <body className="m-0 min-h-full bg-slate-50 text-slate-900">
+        <AuthGate>
+          <AppShell>{children}</AppShell>
+        </AuthGate>
       </body>
     </html>
   );
