@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { catHeadInner, catSittingEyesInner, catWalkLegsInner } from "@/lib/catArt";
+import { SEASON_GREETING, SEASON_PROP_SVG, SEASON_TOY_SVG } from "@/lib/season";
 import { cn } from "@/lib/utils";
+import { useSeason } from "./Season";
 
 function safeId(raw: string) {
   return `c${raw.replace(/[^a-zA-Z0-9]/g, "")}`;
@@ -169,6 +171,8 @@ export function BackgroundCat() {
   const [pose, setPose] = useState<Pose | null>(null);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idx = useRef(0);
+  const season = useSeason();
+  const [toy, setToy] = useState<{ id: number; caught: boolean } | null>(null);
 
   const mobile = vw > 0 && vw < 768;
   const sitW = mobile ? 84 : 112;
@@ -225,11 +229,50 @@ export function BackgroundCat() {
     [],
   );
 
+  // 季節の遊び: 座っていると、ときどき季節のもの（花びら・雪・葉っぱ…）が落ちてきて、ジャンプして捕まえる
+  const sitting = pose?.mode === "sit";
+  useEffect(() => {
+    if (!season || !sitting) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const loop = () => {
+      timers.push(
+        setTimeout(
+          () => {
+            const id = Date.now();
+            setToy({ id, caught: false });
+            // 落ちてきたところでジャンプ
+            timers.push(
+              setTimeout(() => {
+                setHop((h) => h + 1);
+                setToy((t) => (t && t.id === id ? { ...t, caught: true } : t));
+              }, 2300),
+            );
+            timers.push(setTimeout(() => setToy((t) => (t && t.id === id ? null : t)), 2800));
+            loop();
+          },
+          7000 + Math.random() * 9000,
+        ),
+      );
+    };
+    loop();
+    return () => {
+      timers.forEach(clearTimeout);
+      setToy(null);
+    };
+  }, [season, sitting]);
+
   if (!pose) return null;
 
   function poke() {
     setHop((h) => h + 1);
-    setTip(TIPS[idx.current % TIPS.length]);
+    // 季節があるときは 3 回に 1 回（最初の 1 回目も）季節のあいさつ
+    if (season && idx.current % 3 === 0) {
+      const g = SEASON_GREETING[season];
+      setTip(g[Math.floor(idx.current / 3) % g.length]);
+    } else {
+      setTip(TIPS[idx.current % TIPS.length]);
+    }
     idx.current += 1;
     if (tipTimer.current) clearTimeout(tipTimer.current);
     tipTimer.current = setTimeout(() => setTip(null), 5000);
@@ -270,6 +313,31 @@ export function BackgroundCat() {
           <CatSitting width={sitW} follow className="drop-shadow-sm" />
         )}
       </div>
+      {season && pose.mode === "sit" && (
+        <>
+          {/* 横に置く季節の小物（画面の内側に置く） */}
+          <svg
+            viewBox="0 0 60 60"
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0"
+            style={{
+              width: sitW * 0.42,
+              height: sitW * 0.42,
+              ...(pose.x > vw / 2 ? { right: "100%", marginRight: -4 } : { left: "100%", marginLeft: -4 }),
+            }}
+            dangerouslySetInnerHTML={{ __html: SEASON_PROP_SVG[season] }}
+          />
+          {toy && (
+            <div
+              key={toy.id}
+              className={cn("pointer-events-none absolute left-1/2", toy.caught ? "cat-toy-pop" : "cat-toy-fall")}
+              style={{ bottom: sitW * 1.08, width: 18, height: 18, marginLeft: -9 }}
+            >
+              <svg viewBox="-10 -10 20 20" className="h-full w-full" dangerouslySetInnerHTML={{ __html: SEASON_TOY_SVG[season] }} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

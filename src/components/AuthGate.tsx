@@ -7,6 +7,7 @@ import { isCloudConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/data";
 import { YearProvider } from "@/lib/year";
 import { CAT_NAME, CatSitting } from "./Cat";
+import { SeasonalBackground } from "./Season";
 import { Spinner } from "./ui";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -42,7 +43,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 function Login() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <SeasonalBackground />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-5 flex flex-col items-center gap-2">
           <CatSitting width={100} follow />
           <div className="-mt-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-[#991b1b]">{CAT_NAME}</div>

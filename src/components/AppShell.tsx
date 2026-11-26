@@ -18,6 +18,7 @@ import { useData } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { BackgroundCat, CatHead } from "./Cat";
+import { SeasonalBackground } from "./Season";
 import { TxDialogProvider, useTxDialog } from "./TransactionDialog";
 import { Button, Spinner } from "./ui";
 
@@ -108,6 +109,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      <SeasonalBackground />
       <BackgroundCat />
       <main className="relative z-10 mx-auto max-w-6xl px-4 pt-5 pb-28 md:pb-36">
         {error ? (

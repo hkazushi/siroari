@@ -73,6 +73,9 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 - アイコン・レイヤー類（`public/cat-*.svg`・`cat-icon-*.png`・`apple-touch-icon.png`・`favicon-32.png`）は生成物。`catArt.ts` を変えたら `node scripts/gen-cat-icons.mjs` を実行（rsvg-convert が必要）
 - `catArt.ts` は import を持たない（Node が直接 .ts を読むため）
 - 請求書の印刷には会社ロゴ（`public/logo.png`）を使う。猫は出さない
+- 季節の演出（`src/lib/season.ts` / `src/components/Season.tsx`）: 1/1〜7 正月（梅・紙吹雪・鏡餅）、12〜2月 雪（雪だるま）、3/15〜4/15 桜（花見団子）、10/15〜31 ハロウィン（かぼちゃ・コウモリ）、11月 紅葉（落ち葉）。それ以外は無し
+  - 背景の canvas は z-0（内容の奥）。座っているあかちゃんに季節のものが落ちてきてジャンプで捕まえる・横に小物・タップで季節のあいさつ
+  - 試し表示は URL に `?season=snow|sakura|autumn|halloween|newyear|none`
 
 ## 過去に実際に踏んだ罠
 
