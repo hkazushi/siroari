@@ -82,6 +82,7 @@ function fur(opts: {
   len: [number, number];
   width: number;
   pal?: "head" | "body";
+  opacity?: number;
 }): string {
   const r = rng(opts.seed);
   const [x0, y0, x1, y1] = opts.box;
@@ -103,7 +104,7 @@ function fur(opts: {
   return [...groups.entries()]
     .map(
       ([c, segs]) =>
-        `<path d="${segs.join("")}" stroke="${c}" stroke-width="${opts.width}" stroke-linecap="round" fill="none"/>`,
+        `<path d="${segs.join("")}" stroke="${c}" stroke-width="${opts.width}" stroke-linecap="round" fill="none"${opts.opacity != null ? ` opacity="${opts.opacity}"` : ""}/>`,
     )
     .join("");
 }
@@ -162,19 +163,19 @@ const BLAZE_D =
 
 function headMix(p: Pt): Mix {
   const [x, y] = p;
-  if (inPoly(p, STRIPE)) return [0.05, 0.12, 0.83, 0];
-  if (inPoly(p, BLAZE)) return [0.72, 0.06, 0.04, 0.18];
+  if (inPoly(p, STRIPE)) return [0.03, 0.07, 0.9, 0];
+  if (inPoly(p, BLAZE)) return [0.82, 0.08, 0.05, 0.05];
   if (inEllipse(p, 110, 151, 22, 14)) return [0.02, 0.08, 0.9, 0]; // 鼻の下〜口元右: 黒
   if (inEllipse(p, 104, 165, 18, 9)) return [0.02, 0.13, 0.85, 0]; // あご: 黒
   if (inEllipse(p, 81, 150, 12, 10)) return [0.3, 0.08, 0.02, 0.6]; // 口元左: 明るい茶
   if (inEllipse(p, 84, 166, 10, 6)) return [0.2, 0.25, 0.1, 0.45]; // あご左: ベージュ
   if (inEllipse(p, 131, 128, 12, 8)) return [0.1, 0.3, 0.6, 0]; // 右目の下: 暗い
   if (inEllipse(p, 58, 128, 26, 24)) return [0.45, 0.22, 0.28, 0.05]; // 左頬: オレンジに黒まじり
-  if (inEllipse(p, 72, 86, 24, 16)) return [0.28, 0.3, 0.42, 0]; // 左の額
+  if (inEllipse(p, 72, 86, 24, 16)) return [0.22, 0.26, 0.52, 0]; // 左の額
   if (inEllipse(p, 148, 128, 22, 24)) return [0.25, 0.3, 0.45, 0]; // 右頬: 黒多めのまだら
   if (x > 132 && y < 104) return [0.25, 0.3, 0.45, 0]; // 右目の上〜外側
-  if (y < 72) return [0.08, 0.27, 0.65, 0]; // 頭頂
-  return [0.2, 0.32, 0.48, 0];
+  if (y < 72) return [0.06, 0.2, 0.74, 0]; // 頭頂
+  return [0.18, 0.27, 0.55, 0];
 }
 
 function eye(cx: number, cy: number, id: string): string {
@@ -187,18 +188,23 @@ function eye(cx: number, cy: number, id: string): string {
 
 const insideHead = (p: Pt) => inEllipse(p, 100, 117, 72, 60);
 
+/** 毛の流れ: 額は眉間から扇状に上へ、顔の下半分は鼻から外へ */
+const headFurDir = ([x, y]: Pt) => (y < 108 ? Math.atan2(y - 122, x - 100) : Math.atan2(y - 142, x - 101));
+
 /** 頭部の SVG 要素（<svg> の中身）。id は 1 ページに複数置くとき重複しないように変える */
 export function catHeadInner(id = "cat"): string {
   // 左耳は付け根にオレンジ、右耳はほぼ黒
   const earMixL = (p: Pt): Mix => (p[1] > 70 ? [0.35, 0.25, 0.4, 0] : [0.1, 0.25, 0.65, 0]);
   const earMixR = (p: Pt): Mix => (p[1] > 80 ? [0.18, 0.3, 0.52, 0] : [0.05, 0.22, 0.73, 0]);
   const earFur = (seed: number, pts: Pt[], mix: (p: Pt) => Mix) =>
-    fur({ seed, count: 170, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2, 4], width: 1.3 });
+    fur({ seed, count: 300, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2.5, 5], width: 0.8 });
 
   return `<defs>
 <radialGradient id="${id}-iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#e0cd78"/><stop offset=".45" stop-color="#c4a84a"/><stop offset=".8" stop-color="#97802f"/><stop offset="1" stop-color="#5f5222"/></radialGradient>
 <linearGradient id="${id}-inear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3530"/><stop offset=".6" stop-color="#8f6c66"/><stop offset="1" stop-color="#b08a82"/></linearGradient>
 <clipPath id="${id}-head"><path d="${HEAD_PATH}"/></clipPath>
+<filter id="${id}-soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.4"/></filter>
+<filter id="${id}-soft2" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1"/></filter>
 <clipPath id="${id}-earl"><path d="${EAR_L}"/></clipPath>
 <clipPath id="${id}-earr"><path d="${EAR_R}"/></clipPath>
 </defs>
@@ -208,23 +214,38 @@ export function catHeadInner(id = "cat"): string {
 <g class="cat-ear-r"><path d="${EAR_R}" fill="#2a2019"/><g clip-path="url(#${id}-earr)">${earFur(12, EAR_R_PTS, earMixR)}</g>
 <path d="M149,90 L147,33 L111,68 Z" fill="url(#${id}-inear)"/>
 <path d="M142,72 l6,-12 M138,76 l4,-13 M144,81 l8,-9 M134,79 l2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
-<path d="${HEAD_PATH}" fill="#45332a"/>
+<path d="${HEAD_PATH}" fill="#33261e"/>
 <g clip-path="url(#${id}-head)">
-${blobs({ seed: 5, count: 230, box: [28, 56, 172, 176], inside: insideHead, mix: headMix, r: [4, 8] })}
-<path d="${BLAZE_D}" fill="#cf8f58"/>
-<path d="${STRIPE_D}" fill="#231a13"/>
+<g filter="url(#${id}-soft)">
+${blobs({ seed: 5, count: 260, box: [28, 56, 172, 176], inside: insideHead, mix: headMix, r: [4, 8] })}
 <ellipse cx="110" cy="151" rx="21" ry="13" fill="#1f1610"/>
 <ellipse cx="104" cy="165" rx="17" ry="8" fill="#241a13"/>
 <ellipse cx="81" cy="151" rx="11" ry="9" fill="#d4a97a"/>
+</g>
+<g filter="url(#${id}-soft2)">
+<path d="${BLAZE_D}" fill="#c98446"/>
+<path d="${STRIPE_D}" fill="#1a120c"/>
+</g>
 ${fur({
   seed: 7,
-  count: 1500,
+  count: 2600,
   box: [28, 56, 172, 176],
   inside: insideHead,
   mix: headMix,
-  dir: ([x, y]) => Math.atan2(y - 142, x - 101),
-  len: [2, 4.2],
-  width: 1.3,
+  dir: headFurDir,
+  len: [3, 6.5],
+  width: 0.8,
+})}
+${fur({
+  seed: 8,
+  count: 320,
+  box: [28, 56, 172, 120],
+  inside: (p) => insideHead(p) && !inPoly(p, BLAZE) && !inPoly(p, STRIPE),
+  mix: () => [0.75, 0.25, 0, 0],
+  dir: headFurDir,
+  len: [3.5, 7],
+  width: 0.6,
+  opacity: 0.55,
 })}
 <path d="M70,93 Q76,89 83,92 M119,92 Q126,89 132,93" stroke="#1d140e" stroke-width="1.6" fill="none" opacity=".6" stroke-linecap="round"/>
 </g>
