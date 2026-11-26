@@ -8,16 +8,20 @@ function safeId(raw: string) {
   return `c${raw.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
-/** 顔だけ（ロゴ用） */
+/** 顔だけ（ロゴ用）。動かさない場合は生成済みの /cat-head.svg を画像で表示（DOM を軽くする） */
 export function CatHead({ size = 32, className, live = false }: { size?: number; className?: string; live?: boolean }) {
   const id = safeId(useId());
-  const html = useMemo(() => catHeadInner(id), [id]);
+  const html = useMemo(() => (live ? catHeadInner(id) : ""), [id, live]);
+  if (!live) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src="/cat-head.svg" width={size} height={size} alt="" aria-hidden="true" className={className} />;
+  }
   return (
     <svg
       viewBox="0 0 200 200"
       width={size}
       height={size}
-      className={cn(live && "cat-live", className)}
+      className={cn("cat-live", className)}
       aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: html }}
     />
