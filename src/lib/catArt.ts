@@ -169,12 +169,12 @@ function headMix(p: Pt): Mix {
   if (inEllipse(p, 81, 150, 12, 10)) return [0.3, 0.08, 0.02, 0.6]; // 口元左: 明るい茶
   if (inEllipse(p, 84, 166, 10, 6)) return [0.2, 0.25, 0.1, 0.45]; // あご左: ベージュ
   if (inEllipse(p, 131, 128, 12, 8)) return [0.1, 0.3, 0.6, 0]; // 右目の下: 暗い
-  if (inEllipse(p, 58, 128, 26, 24)) return [0.62, 0.2, 0.1, 0.08]; // 左頬: オレンジ
-  if (inEllipse(p, 72, 86, 24, 16)) return [0.45, 0.33, 0.22, 0]; // 左の額
-  if (inEllipse(p, 148, 128, 22, 24)) return [0.42, 0.33, 0.25, 0]; // 右頬: 茶とオレンジのまだら
-  if (x > 132 && y < 104) return [0.4, 0.35, 0.25, 0]; // 右目の上〜外側
-  if (y < 72) return [0.15, 0.35, 0.5, 0]; // 頭頂
-  return [0.3, 0.4, 0.3, 0];
+  if (inEllipse(p, 58, 128, 26, 24)) return [0.45, 0.22, 0.28, 0.05]; // 左頬: オレンジに黒まじり
+  if (inEllipse(p, 72, 86, 24, 16)) return [0.28, 0.3, 0.42, 0]; // 左の額
+  if (inEllipse(p, 148, 128, 22, 24)) return [0.25, 0.3, 0.45, 0]; // 右頬: 黒多めのまだら
+  if (x > 132 && y < 104) return [0.25, 0.3, 0.45, 0]; // 右目の上〜外側
+  if (y < 72) return [0.08, 0.27, 0.65, 0]; // 頭頂
+  return [0.2, 0.32, 0.48, 0];
 }
 
 function eye(cx: number, cy: number, id: string): string {
@@ -190,8 +190,8 @@ const insideHead = (p: Pt) => inEllipse(p, 100, 117, 72, 60);
 /** 頭部の SVG 要素（<svg> の中身）。id は 1 ページに複数置くとき重複しないように変える */
 export function catHeadInner(id = "cat"): string {
   // 左耳は付け根にオレンジ、右耳はほぼ黒
-  const earMixL = (p: Pt): Mix => (p[1] > 70 ? [0.55, 0.25, 0.2, 0] : [0.2, 0.3, 0.5, 0]);
-  const earMixR = (p: Pt): Mix => (p[1] > 80 ? [0.3, 0.35, 0.35, 0] : [0.08, 0.3, 0.62, 0]);
+  const earMixL = (p: Pt): Mix => (p[1] > 70 ? [0.35, 0.25, 0.4, 0] : [0.1, 0.25, 0.65, 0]);
+  const earMixR = (p: Pt): Mix => (p[1] > 80 ? [0.18, 0.3, 0.52, 0] : [0.05, 0.22, 0.73, 0]);
   const earFur = (seed: number, pts: Pt[], mix: (p: Pt) => Mix) =>
     fur({ seed, count: 170, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2, 4], width: 1.3 });
 
@@ -202,13 +202,13 @@ export function catHeadInner(id = "cat"): string {
 <clipPath id="${id}-earl"><path d="${EAR_L}"/></clipPath>
 <clipPath id="${id}-earr"><path d="${EAR_R}"/></clipPath>
 </defs>
-<g class="cat-ear-l"><path d="${EAR_L}" fill="#3b2e24"/><g clip-path="url(#${id}-earl)">${earFur(11, EAR_L_PTS, earMixL)}</g>
+<g class="cat-ear-l"><path d="${EAR_L}" fill="#2c2119"/><g clip-path="url(#${id}-earl)">${earFur(11, EAR_L_PTS, earMixL)}</g>
 <path d="M51,90 L53,33 L89,68 Z" fill="url(#${id}-inear)"/>
 <path d="M58,72 l-6,-12 M62,76 l-4,-13 M56,81 l-8,-9 M66,79 l-2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
 <g class="cat-ear-r"><path d="${EAR_R}" fill="#2a2019"/><g clip-path="url(#${id}-earr)">${earFur(12, EAR_R_PTS, earMixR)}</g>
 <path d="M149,90 L147,33 L111,68 Z" fill="url(#${id}-inear)"/>
 <path d="M142,72 l6,-12 M138,76 l4,-13 M144,81 l8,-9 M134,79 l2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
-<path d="${HEAD_PATH}" fill="#6b4f3a"/>
+<path d="${HEAD_PATH}" fill="#45332a"/>
 <g clip-path="url(#${id}-head)">
 ${blobs({ seed: 5, count: 230, box: [28, 56, 172, 176], inside: insideHead, mix: headMix, r: [4, 8] })}
 <path d="${BLAZE_D}" fill="#cf8f58"/>
