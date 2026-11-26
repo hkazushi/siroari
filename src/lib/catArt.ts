@@ -59,6 +59,48 @@ function inEllipse([x, y]: Pt, cx: number, cy: number, rx: number, ry: number): 
 const pick = (arr: string[], r: number) => arr[Math.floor(r * arr.length) % arr.length];
 const f = (n: number) => Math.round(n * 10) / 10;
 
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const smooth = (e0: number, e1: number, v: number) => {
+  const t = clamp01((v - e0) / (e1 - e0));
+  return t * t * (3 - 2 * t);
+};
+
+/** 値ノイズ（0〜1）。柄の境目を不規則にするために使う */
+function makeNoise(seed: number) {
+  const h = (ix: number, iy: number) => {
+    let n = Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(seed, 2246822519);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const one = (x: number, y: number) => {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const fx = x - ix;
+    const fy = y - iy;
+    const sx = fx * fx * (3 - 2 * fx);
+    const sy = fy * fy * (3 - 2 * fy);
+    const a = h(ix, iy) + (h(ix + 1, iy) - h(ix, iy)) * sx;
+    const b = h(ix, iy + 1) + (h(ix + 1, iy + 1) - h(ix, iy + 1)) * sx;
+    return a + (b - a) * sy;
+  };
+  // 2 オクターブ
+  return (x: number, y: number, scale: number) => one(x / scale, y / scale) * 0.65 + one((x * 2.1) / scale + 17, (y * 2.1) / scale + 9) * 0.35;
+}
+
+/** 楕円の中心からの距離に応じて 1→0 になる重み */
+function softEllipse([x, y]: Pt, cx: number, cy: number, rx: number, ry: number, feather = 0.5): number {
+  const d = Math.sqrt(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2);
+  return 1 - smooth(1 - feather, 1 + feather * 0.4, d);
+}
+
+/** 黒さ D（0〜1）とクリーム量からまだらの割合を作る */
+function mixFromDark(D: number, cream = 0, contrast = true): Mix {
+  // コントラストをつけて「黒の塊」と「オレンジの塊」がはっきり出るようにする（境目はノイズで不規則）
+  const d = contrast ? smooth(0.22, 0.78, D) : clamp01(D);
+  const c = clamp01(cream);
+  return [(1 - d) * 0.85 * (1 - c), 0.1 + 0.12 * (1 - Math.abs(d - 0.5) * 2), d * 0.88 * (1 - c * 0.7), c * 0.9];
+}
+
 /** 割合に従って色を選ぶ */
 function sample(m: Mix, r: number, r2: number, pal: Pal): string {
   const total = m[0] + m[1] + m[2] + m[3];
@@ -150,32 +192,49 @@ const EAR_R = "M160,102 L154,22 Q151,13 143,17 L100,64 Z";
 const EAR_L_PTS: Pt[] = [[40, 102], [46, 22], [57, 17], [100, 64]];
 const EAR_R_PTS: Pt[] = [[160, 102], [154, 22], [143, 17], [100, 64]];
 
-// 額の黒い縦筋（頭頂〜眉間〜鼻すじの左側）
-const STRIPE: Pt[] = [[92, 56], [103, 56], [102, 84], [100, 104], [99, 120], [93, 136], [90, 134], [94, 112], [95, 90]];
-// 向かって右の額〜眉間〜鼻すじ右のオレンジ
-const BLAZE: Pt[] = [
-  [103, 56], [118, 57], [133, 63], [141, 72], [136, 84], [124, 94], [114, 104], [110, 116], [108, 134], [101, 134], [100, 112], [102, 84],
-];
-const STRIPE_D =
-  "M92,56 L103,56 C103,68 102,84 100,104 C99,114 97,126 93,136 L90,134 C92,124 94,112 95,98 C95,84 94,68 92,56Z";
-const BLAZE_D =
-  "M103,56 C114,56 128,59 138,67 L141,72 C138,82 128,91 118,99 C112,106 110,118 108,134 L101,134 C100,118 100,104 101,92 C102,80 103,68 103,56Z";
+// 柄は「黒さの場」で決める（図形で区切ると黒い部分が貼り付けたように分かれて見えるため）
+const headNoise = makeNoise(3);
+
+/** 額の黒い筋（頭頂〜眉間〜鼻すじの左）: 中心線からの距離で薄れる＋ノイズでにじむ */
+function stripeField([x, y]: Pt, n: number): number {
+  if (y < 50 || y > 140) return 0;
+  const cx = 97 - Math.max(0, y - 100) * 0.12 + (n - 0.5) * 6;
+  const width = 5 + (y < 70 ? 4 : 0) + n * 3;
+  const along = smooth(50, 60, y) * (1 - smooth(128, 140, y));
+  return (1 - smooth(width * 0.6, width * 1.6, Math.abs(x - cx))) * along;
+}
+
+/** 向かって右の額〜眉間〜鼻すじ右のオレンジ */
+function blazeField([x, y]: Pt, n: number): number {
+  if (y < 52 || y > 138) return 0;
+  // 上は右の耳の付け根へ広がり、下は鼻すじに向かって細くなる
+  const t = clamp01((y - 56) / 78);
+  const left = 101 + (n - 0.5) * 4;
+  const right = 140 - t * 30 + (n - 0.5) * 14;
+  const inX = smooth(left - 1, left + 4, x) * (1 - smooth(right - 6, right + 6, x));
+  return inX * (1 - smooth(126, 138, y));
+}
+
+function headDark(p: Pt): { D: number; cream: number } {
+  const [x, y] = p;
+  const n = headNoise(x, y, 14);
+  const n2 = headNoise(x + 40, y - 30, 7);
+  let D = 0.62 + (n - 0.5) * 0.75 + (n2 - 0.5) * 0.3; // 頭は全体に黒っぽく、まだら
+  D += (1 - smooth(58, 80, y)) * 0.15; // 頭頂はより黒
+  D += stripeField(p, n2) * 1.3;
+  D -= blazeField(p, n2) * 1.25;
+  D -= softEllipse(p, 58, 128, 26, 24) * 0.3; // 左頬はオレンジ寄り
+  D += softEllipse(p, 131, 128, 13, 9) * 0.25; // 右目の下は暗い
+  D += softEllipse(p, 110, 152, 23, 15, 0.6) * 1.1; // 鼻の下〜口元右は黒
+  D += softEllipse(p, 104, 166, 19, 10, 0.6) * 0.9; // あご
+  const cream = softEllipse(p, 81, 150, 12, 10, 0.7) * 0.8 + softEllipse(p, 84, 167, 10, 6, 0.7) * 0.5;
+  D -= cream * 0.8;
+  return { D, cream };
+}
 
 function headMix(p: Pt): Mix {
-  const [x, y] = p;
-  if (inPoly(p, STRIPE)) return [0.03, 0.07, 0.9, 0];
-  if (inPoly(p, BLAZE)) return [0.82, 0.08, 0.05, 0.05];
-  if (inEllipse(p, 110, 151, 22, 14)) return [0.02, 0.08, 0.9, 0]; // 鼻の下〜口元右: 黒
-  if (inEllipse(p, 104, 165, 18, 9)) return [0.02, 0.13, 0.85, 0]; // あご: 黒
-  if (inEllipse(p, 81, 150, 12, 10)) return [0.3, 0.08, 0.02, 0.6]; // 口元左: 明るい茶
-  if (inEllipse(p, 84, 166, 10, 6)) return [0.2, 0.25, 0.1, 0.45]; // あご左: ベージュ
-  if (inEllipse(p, 131, 128, 12, 8)) return [0.1, 0.3, 0.6, 0]; // 右目の下: 暗い
-  if (inEllipse(p, 58, 128, 26, 24)) return [0.45, 0.22, 0.28, 0.05]; // 左頬: オレンジに黒まじり
-  if (inEllipse(p, 72, 86, 24, 16)) return [0.22, 0.26, 0.52, 0]; // 左の額
-  if (inEllipse(p, 148, 128, 22, 24)) return [0.25, 0.3, 0.45, 0]; // 右頬: 黒多めのまだら
-  if (x > 132 && y < 104) return [0.25, 0.3, 0.45, 0]; // 右目の上〜外側
-  if (y < 72) return [0.06, 0.2, 0.74, 0]; // 頭頂
-  return [0.18, 0.27, 0.55, 0];
+  const { D, cream } = headDark(p);
+  return mixFromDark(D, cream);
 }
 
 function eye(cx: number, cy: number, id: string): string {
@@ -192,39 +251,33 @@ const insideHead = (p: Pt) => inEllipse(p, 100, 117, 72, 60);
 const headFurDir = ([x, y]: Pt) => (y < 108 ? Math.atan2(y - 122, x - 100) : Math.atan2(y - 142, x - 101));
 
 /** 頭部の SVG 要素（<svg> の中身）。id は 1 ページに複数置くとき重複しないように変える */
-export function catHeadInner(id = "cat"): string {
+export function catHeadInner(id = "cat", opts: { eyes?: boolean } = {}): string {
+  const withEyes = opts.eyes !== false;
   // 左耳は付け根にオレンジ、右耳はほぼ黒
-  const earMixL = (p: Pt): Mix => (p[1] > 70 ? [0.35, 0.25, 0.4, 0] : [0.1, 0.25, 0.65, 0]);
-  const earMixR = (p: Pt): Mix => (p[1] > 80 ? [0.18, 0.3, 0.52, 0] : [0.05, 0.22, 0.73, 0]);
+  // 耳は付け根で頭の柄とつながり、先に行くほど黒くなる
+  const earMixL = (p: Pt): Mix => mixFromDark(0.62 + (headNoise(p[0], p[1], 10) - 0.5) * 0.9 - smooth(60, 95, p[1]) * 0.25);
+  const earMixR = (p: Pt): Mix => mixFromDark(0.72 + (headNoise(p[0] + 50, p[1], 10) - 0.5) * 0.8 - smooth(70, 95, p[1]) * 0.15);
   const earFur = (seed: number, pts: Pt[], mix: (p: Pt) => Mix) =>
-    fur({ seed, count: 300, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2.5, 5], width: 0.8 });
+    fur({ seed, count: 520, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2.5, 5.5], width: 0.85 });
 
   return `<defs>
 <radialGradient id="${id}-iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#e0cd78"/><stop offset=".45" stop-color="#c4a84a"/><stop offset=".8" stop-color="#97802f"/><stop offset="1" stop-color="#5f5222"/></radialGradient>
 <linearGradient id="${id}-inear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3530"/><stop offset=".6" stop-color="#8f6c66"/><stop offset="1" stop-color="#b08a82"/></linearGradient>
 <clipPath id="${id}-head"><path d="${HEAD_PATH}"/></clipPath>
 <filter id="${id}-soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.4"/></filter>
-<filter id="${id}-soft2" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1"/></filter>
 <clipPath id="${id}-earl"><path d="${EAR_L}"/></clipPath>
 <clipPath id="${id}-earr"><path d="${EAR_R}"/></clipPath>
 </defs>
-<g class="cat-ear-l"><path d="${EAR_L}" fill="#2c2119"/><g clip-path="url(#${id}-earl)">${earFur(11, EAR_L_PTS, earMixL)}</g>
+<g class="cat-ear-l"><path d="${EAR_L}" fill="#3a2a20"/><g clip-path="url(#${id}-earl)">${earFur(11, EAR_L_PTS, earMixL)}</g>
 <path d="M51,90 L53,33 L89,68 Z" fill="url(#${id}-inear)"/>
 <path d="M58,72 l-6,-12 M62,76 l-4,-13 M56,81 l-8,-9 M66,79 l-2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
-<g class="cat-ear-r"><path d="${EAR_R}" fill="#2a2019"/><g clip-path="url(#${id}-earr)">${earFur(12, EAR_R_PTS, earMixR)}</g>
+<g class="cat-ear-r"><path d="${EAR_R}" fill="#33251c"/><g clip-path="url(#${id}-earr)">${earFur(12, EAR_R_PTS, earMixR)}</g>
 <path d="M149,90 L147,33 L111,68 Z" fill="url(#${id}-inear)"/>
 <path d="M142,72 l6,-12 M138,76 l4,-13 M144,81 l8,-9 M134,79 l2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
 <path d="${HEAD_PATH}" fill="#33261e"/>
 <g clip-path="url(#${id}-head)">
 <g filter="url(#${id}-soft)">
-${blobs({ seed: 5, count: 260, box: [28, 56, 172, 176], inside: insideHead, mix: headMix, r: [4, 8] })}
-<ellipse cx="110" cy="151" rx="21" ry="13" fill="#1f1610"/>
-<ellipse cx="104" cy="165" rx="17" ry="8" fill="#241a13"/>
-<ellipse cx="81" cy="151" rx="11" ry="9" fill="#d4a97a"/>
-</g>
-<g filter="url(#${id}-soft2)">
-<path d="${BLAZE_D}" fill="#c98446"/>
-<path d="${STRIPE_D}" fill="#1a120c"/>
+${blobs({ seed: 5, count: 420, box: [28, 50, 172, 176], inside: insideHead, mix: headMix, r: [3.5, 7] })}
 </g>
 ${fur({
   seed: 7,
@@ -240,7 +293,7 @@ ${fur({
   seed: 8,
   count: 320,
   box: [28, 56, 172, 120],
-  inside: (p) => insideHead(p) && !inPoly(p, BLAZE) && !inPoly(p, STRIPE),
+  inside: (p) => insideHead(p) && headDark(p).D > 0.45,
   mix: () => [0.75, 0.25, 0, 0],
   dir: headFurDir,
   len: [3.5, 7],
@@ -249,7 +302,7 @@ ${fur({
 })}
 <path d="M70,93 Q76,89 83,92 M119,92 Q126,89 132,93" stroke="#1d140e" stroke-width="1.6" fill="none" opacity=".6" stroke-linecap="round"/>
 </g>
-${eye(74, 111, id)}${eye(127, 111, id)}
+${withEyes ? `${eye(74, 111, id)}${eye(127, 111, id)}` : ""}
 <path d="M95,135 Q102,131.5 109,135 Q106,142 102,144 Q98,142 95,135Z" fill="#120b08"/>
 <path d="M102,144 L102,149 M102,149 Q96,154 90,151 M102,149 Q108,154 114,151" stroke="#0d0805" stroke-width="1.8" fill="none" stroke-linecap="round"/>
 <g fill="#2a1c13" opacity=".55"><circle cx="83" cy="146" r=".9"/><circle cx="80" cy="150" r=".9"/><circle cx="84" cy="153" r=".9"/></g>
@@ -266,35 +319,43 @@ ${eye(74, 111, id)}${eye(127, 111, id)}
 const BODY_PATH = "M62,148 C36,190 28,252 42,292 Q120,304 198,292 C212,252 204,190 178,148 Z";
 const BODY_PTS: Pt[] = [[62, 148], [178, 148], [210, 250], [198, 300], [42, 300], [30, 250]];
 
+const bodyNoise = makeNoise(9);
+
 function bodyMix(p: Pt): Mix {
-  if (inEllipse(p, 120, 158, 30, 14)) return [0.5, 0.3, 0.12, 0.08]; // のど
-  if (inEllipse(p, 66, 212, 34, 54)) return [0.72, 0.16, 0.12, 0]; // 左肩〜脇: 赤みのオレンジ
-  if (inEllipse(p, 60, 274, 28, 24)) return [0.55, 0.15, 0.3, 0]; // 左下: オレンジに黒
-  if (inEllipse(p, 184, 232, 30, 58)) return [0.35, 0.3, 0.35, 0]; // 右側: 黒のまだらが多め
-  if (inEllipse(p, 120, 205, 34, 40)) return [0.5, 0.33, 0.17, 0]; // 胸
-  return [0.55, 0.25, 0.2, 0];
+  const [x, y] = p;
+  const n = bodyNoise(x, y, 18);
+  const n2 = bodyNoise(x - 20, y + 30, 8);
+  let D = 0.3 + (n - 0.5) * 0.9 + (n2 - 0.5) * 0.35; // 赤みのオレンジに黒がにじむ
+  D -= softEllipse(p, 66, 212, 34, 54) * 0.22; // 左肩〜脇は明るい
+  D += softEllipse(p, 188, 228, 34, 64) * 0.25; // 右側・背中側は暗め
+  D += (1 - smooth(150, 172, y)) * 0.15; // 首まわり
+  // 体はコントラストを弱めにして、細かい霜降りに見せる（大きな黒い斑点にしない）
+  const m = mixFromDark(0.2 + D * 0.6, 0, false);
+  return [m[0] * 1.1, m[1], m[2], m[3]];
 }
 
 const LEG_L: Pt[] = [[84, 222], [116, 222], [118, 290], [82, 290]];
 const LEG_R: Pt[] = [[124, 222], [156, 222], [158, 290], [122, 290]];
 const legMix = (p: Pt): Mix => (p[0] < 120 ? [0.65, 0.22, 0.13, 0] : [0.5, 0.28, 0.22, 0]);
 
-export function catSittingInner(id = "cats"): string {
+function sittingParts(id: string) {
   const pawPts = (cx: number): ((p: Pt) => boolean) => (p) => inEllipse(p, cx, 289, 18, 11);
   const legBars = (x0: number) =>
     [232, 246, 260, 274]
       .map((y, i) => `M${x0 + 2},${y + (i % 2)} Q${x0 + 17},${y + 5} ${x0 + 32},${y - 1}`)
       .join(" ");
-  return `<defs><clipPath id="${id}-body"><path d="${BODY_PATH}"/></clipPath>
+  return {
+    defs: `<defs><clipPath id="${id}-body"><path d="${BODY_PATH}"/></clipPath>
+<filter id="${id}-bsoft" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
 <radialGradient id="${id}-shade"><stop offset="0" stop-color="#1d140e" stop-opacity=".55"/><stop offset="1" stop-color="#1d140e" stop-opacity="0"/></radialGradient>
-<clipPath id="${id}-legs"><path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z"/></clipPath></defs>
-<g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#2d221a" stroke-width="17" fill="none" stroke-linecap="round"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8682f" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 7 9 6 3 9" opacity=".9"/>
-<path d="M190,286 C228,290 236,254 224,230" stroke="#7a5131" stroke-width="3" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/></g>
-<g class="cat-breath">
+<clipPath id="${id}-legs"><path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z"/></clipPath></defs>`,
+    tail: `<g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#2d221a" stroke-width="17" fill="none" stroke-linecap="round"/>
+<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8682f" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 7 9 6 3 9" opacity=".85" filter="url(#${id}-bsoft)"/>
+<path d="M190,286 C228,290 236,254 224,230" stroke="#7a5131" stroke-width="3" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/></g>`,
+    body: `<g class="cat-breath">
 <path d="${BODY_PATH}" fill="#7a5132"/>
 <g clip-path="url(#${id}-body)">
-${blobs({
+<g filter="url(#${id}-bsoft)">${blobs({
   seed: 19,
   count: 560,
   box: [28, 140, 212, 302],
@@ -306,29 +367,29 @@ ${blobs({
   },
   r: [4, 7],
   pal: "body",
-})}
+})}</g>
 <ellipse cx="192" cy="218" rx="46" ry="84" fill="url(#${id}-shade)"/>
 <ellipse cx="120" cy="150" rx="70" ry="20" fill="url(#${id}-shade)" opacity=".7"/>}
 ${fur({
   seed: 21,
-  count: 2500,
+  count: 3600,
   box: [28, 140, 212, 302],
   pal: "body",
   inside: (p) => inPoly(p, BODY_PTS),
   mix: bodyMix,
   dir: ([x]) => Math.PI / 2 + (x - 120) / 160,
-  len: [2.5, 5],
-  width: 1.4,
+  len: [3, 6],
+  width: 0.9,
 })}
-<g stroke="#1f150e" stroke-width="2.6" fill="none" opacity=".5" stroke-linecap="round">
+<g stroke="#1f150e" stroke-width="3" fill="none" opacity=".3" stroke-linecap="round" filter="url(#${id}-bsoft)">
 <path d="M94,184 Q120,191 146,184"/><path d="M92,199 Q120,207 148,199"/>
 <path d="M48,214 Q60,206 74,212"/><path d="M44,232 Q58,224 72,230"/><path d="M168,212 Q182,206 194,214"/>
 </g>
 <g clip-path="url(#${id}-legs)">
 <path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z" fill="#a9632f"/>
 <path d="M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z" fill="#8a5530"/>
-${fur({ seed: 41, count: 380, box: [80, 220, 160, 292], inside: (p) => inPoly(p, LEG_L) || inPoly(p, LEG_R), mix: legMix, dir: () => Math.PI / 2, len: [2, 4], width: 1.3, pal: "body" })}
-<path d="${legBars(84)} ${legBars(124)}" stroke="#20150e" stroke-width="2" fill="none" opacity=".35" stroke-linecap="round"/>
+${fur({ seed: 41, count: 640, box: [80, 220, 160, 292], inside: (p) => inPoly(p, LEG_L) || inPoly(p, LEG_R), mix: legMix, dir: () => Math.PI / 2, len: [2.5, 5], width: 0.9, pal: "body" })}
+<path d="${legBars(84)} ${legBars(124)}" stroke="#20150e" stroke-width="2.4" fill="none" opacity=".28" stroke-linecap="round" filter="url(#${id}-bsoft)"/>
 </g>
 <path d="M117,232 C118,254 118,272 117,288 M123,232 C122,254 122,272 123,288" stroke="#2a1c13" stroke-width="1.2" opacity=".3" fill="none"/>
 </g>
@@ -336,8 +397,35 @@ ${fur({ seed: 41, count: 380, box: [80, 220, 160, 292], inside: (p) => inPoly(p,
 ${fur({ seed: 31, count: 110, box: [80, 276, 120, 302], inside: pawPts(100), mix: () => [0.75, 0.2, 0.02, 0.03], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
 ${fur({ seed: 32, count: 110, box: [120, 276, 160, 302], inside: pawPts(140), mix: () => [0.6, 0.3, 0.1, 0], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
 <path d="M94,293 l0,5 M100,294 l0,5 M106,293 l0,5 M134,293 l0,5 M140,294 l0,5 M146,293 l0,5" stroke="#1c130d" stroke-width="1.3" opacity=".6"/>
-</g>
-<g class="cat-head" transform="translate(20 -6)">${catHeadInner(id)}</g>`;
+</g>`,
+  };
+}
+
+/** 座った全身（1 枚の SVG。静的ファイル用） */
+export function catSittingInner(id = "cats"): string {
+  const p = sittingParts(id);
+  return `${p.defs}${p.tail}${p.body}<g class="cat-head" transform="translate(20 -6)">${catHeadInner(id)}</g>`;
+}
+
+/**
+ * 画面用のレイヤー（すべて viewBox 0 0 240 300 で重ねる）。
+ * 毛の本数が多くインライン SVG で動かすと再描画が重いので、
+ * 動かない部分は画像ファイルにして、CSS の transform（GPU）で動かす。
+ */
+export function catLayerSvgs(): Record<"tail" | "body" | "head", string> {
+  const p = sittingParts("lay");
+  const wrap = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 300">${inner}</svg>`;
+  return {
+    tail: wrap(`${p.defs}${p.tail.replace('class="cat-tail"', "")}`),
+    body: wrap(`${p.defs}${p.body.replace('class="cat-breath"', "")}`),
+    head: wrap(`<g transform="translate(20 -6)">${catHeadInner("layh", { eyes: false })}</g>`),
+  };
+}
+
+/** 目だけ（全身の座標系）。まばたき・視線追従用にインラインで重ねる */
+export function catSittingEyesInner(id: string): string {
+  return `<defs><radialGradient id="${id}-iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#e0cd78"/><stop offset=".45" stop-color="#c4a84a"/><stop offset=".8" stop-color="#97802f"/><stop offset="1" stop-color="#5f5222"/></radialGradient></defs>
+<g transform="translate(20 -6)">${eye(74, 111, id)}${eye(127, 111, id)}</g>`;
 }
 
 /** アプリアイコン用（背景つき・正方形） */

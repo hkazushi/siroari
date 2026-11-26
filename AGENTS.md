@@ -60,8 +60,10 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 ### イメージキャラ（サビ猫）
 
 - 絵は `src/lib/catArt.ts` がコードで生成する（実在の飼い猫がモデル。額の黒い縦筋・向かって右のオレンジ・口元の左右の色の違いを崩さない）
+- 柄は図形で区切らず「黒さの場（`headDark` / `bodyMix`）＋ノイズ」で決める。図形で塗ると黒い部分が貼り付けたように分かれて見える（2026-11-26 にユーザー指摘）
 - 画面用は `src/components/Cat.tsx`（`CatHead` / `CatSitting` / 背景の `BackgroundCat`）。アニメーションは `globals.css` の `.cat-live` 配下
-- アイコン類（`public/cat-*.svg`・`cat-icon-*.png`・`apple-touch-icon.png`・`favicon-32.png`）は生成物。`catArt.ts` を変えたら `node scripts/gen-cat-icons.mjs` を実行（rsvg-convert が必要）
+- `CatSitting` は `public/cat-layer-{tail,body,head}.svg` を `<img>` で重ね、目だけインライン SVG。しっぽ・首は CSS transform で動かす
+- アイコン・レイヤー類（`public/cat-*.svg`・`cat-icon-*.png`・`apple-touch-icon.png`・`favicon-32.png`）は生成物。`catArt.ts` を変えたら `node scripts/gen-cat-icons.mjs` を実行（rsvg-convert が必要）
 - `catArt.ts` は import を持たない（Node が直接 .ts を読むため）
 - 請求書の印刷には会社ロゴ（`public/logo.png`）を使う。猫は出さない
 
@@ -73,6 +75,8 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 - **GitHub Actions のデプロイが invalidToken で失敗**（2026-11-26）: Secrets の `VERCEL_TOKEN` が失効 → Actions デプロイは廃止し、Vercel の Git 連携（push で自動デプロイ）に切り替えた
 - **React 19 の lint**: effect 内の同期 setState は `react-hooks/set-state-in-effect`、render 中の `Date.now()` は `react-hooks/purity`、render 中の変数再代入は `react-hooks/immutability` で落ちる → `queueMicrotask` / `useState(() => ...)` / reduce で回避
 - **`gh secret set --body -`** は "-" という文字列を保存する（2026-05）→ `--body '値'` で渡す
+- **毛並みの多いインライン SVG を CSS アニメで動かすと重い**（2026-11-26）: 数千本の path＋ぼかしを毎フレーム再描画し、背景の猫だけで 60fps → 32fps に落ちた → 動かない部分は画像（`<img>`）にして transform で動かす。変更後は rAF で fps を計測して確認する
+- **dev サーバーが古い globals.css を返し続ける**（2026-11-26）: 再起動しても直らなかった → `.next` を削除してから起動し直す
 - **page.tsx から定数を export しない**: App Router の page は default 等の決まった export 以外を置くとビルドで落ちうる → 共有定数は `src/lib` に置く
 
 ## デプロイ

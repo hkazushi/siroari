@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { catHeadInner, catSittingInner } from "@/lib/catArt";
+import { catHeadInner, catSittingEyesInner } from "@/lib/catArt";
 import { cn } from "@/lib/utils";
 
 function safeId(raw: string) {
@@ -28,7 +28,11 @@ export function CatHead({ size = 32, className, live = false }: { size?: number;
   );
 }
 
-/** 座った全身。live でまばたき・しっぽ・耳・呼吸が動く。follow で目がポインタを追う */
+/**
+ * 座った全身。しっぽ・体・頭は生成済みの画像（public/cat-layer-*.svg）を重ね、
+ * 目だけ小さなインライン SVG にする（毛の本数が多く、インラインで動かすと重いため）。
+ * live でまばたき・しっぽ・首かしげが動く。follow で目がポインタを追う。
+ */
 export function CatSitting({
   width = 120,
   className,
@@ -43,8 +47,8 @@ export function CatSitting({
   onClick?: () => void;
 }) {
   const id = safeId(useId());
-  const html = useMemo(() => catSittingInner(id), [id]);
-  const ref = useRef<SVGSVGElement>(null);
+  const eyes = useMemo(() => catSittingEyesInner(id), [id]);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!follow) return;
@@ -73,19 +77,26 @@ export function CatSitting({
     };
   }, [follow]);
 
+  const layer = "absolute inset-0 h-full w-full";
   return (
-    <svg
+    <div
       ref={ref}
-      viewBox="0 0 240 300"
-      width={width}
-      height={(width * 300) / 240}
-      className={cn(live && "cat-live", onClick && "cursor-pointer", className)}
+      className={cn("cat-sit relative", live && "cat-live", onClick && "cursor-pointer", className)}
+      style={{ width, height: (width * 300) / 240 }}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       aria-label={onClick ? "サビ猫" : undefined}
       aria-hidden={onClick ? undefined : "true"}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    >
+      {/* eslint-disable @next/next/no-img-element */}
+      <img src="/cat-layer-tail.svg" alt="" draggable={false} className={cn(layer, "cat-tail-h")} />
+      <img src="/cat-layer-body.svg" alt="" draggable={false} className={layer} />
+      <div className={cn(layer, "cat-head-h")}>
+        <img src="/cat-layer-head.svg" alt="" draggable={false} className={layer} />
+        <svg viewBox="0 0 240 300" className={layer} dangerouslySetInnerHTML={{ __html: eyes }} />
+      </div>
+      {/* eslint-enable @next/next/no-img-element */}
+    </div>
   );
 }
 
@@ -169,7 +180,7 @@ export function BackgroundCat() {
         </div>
       )}
       <div key={hop} className={cn("pointer-events-auto", hop > 0 && "cat-hop")}>
-        <CatSitting width={96} follow onClick={poke} className="drop-shadow-sm md:w-[120px] md:h-[150px]" />
+        <CatSitting width={96} follow onClick={poke} className="drop-shadow-sm md:!h-[150px] md:!w-[120px]" />
       </div>
     </div>
   );
