@@ -341,6 +341,98 @@ const LEG_L: Pt[] = [[84, 222], [116, 222], [118, 290], [82, 290]];
 const LEG_R: Pt[] = [[124, 222], [156, 222], [158, 290], [122, 290]];
 const legMix = (p: Pt): Mix => (p[0] < 120 ? [0.65, 0.22, 0.13, 0] : [0.5, 0.28, 0.22, 0]);
 
+type Seg = [Pt, Pt, Pt, Pt];
+
+function bez([a, b, c, d]: Seg, t: number): Pt {
+  const u = 1 - t;
+  return [
+    u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0],
+    u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1],
+  ];
+}
+
+/**
+ * 毛並みのあるしっぽ（付け根→先端）。体と同じ細かい毛・まだらで描き、しまは毛の中にぼかして入れる。
+ * softFilter はぼかしフィルタの id。
+ */
+function furryTail(segs: Seg[], halfW: number, seed: number, stripes: number, softFilter: string): string {
+  // 長さで正規化した位置 u（0=付け根, 1=先端）で点と向きを引けるようにする
+  const pts: { p: Pt; len: number }[] = [];
+  let total = 0;
+  segs.forEach((sg, i) => {
+    for (let k = i === 0 ? 0 : 1; k <= 40; k++) {
+      const p = bez(sg, k / 40);
+      if (pts.length) total += Math.hypot(p[0] - pts[pts.length - 1].p[0], p[1] - pts[pts.length - 1].p[1]);
+      pts.push({ p, len: total });
+    }
+  });
+  const at = (u: number) => {
+    const L = u * total;
+    let i = pts.findIndex((q) => q.len >= L);
+    if (i <= 0) i = 1;
+    const a = pts[i - 1];
+    const b = pts[i];
+    const t = b.len === a.len ? 0 : (L - a.len) / (b.len - a.len);
+    const p: Pt = [a.p[0] + (b.p[0] - a.p[0]) * t, a.p[1] + (b.p[1] - a.p[1]) * t];
+    const ang = Math.atan2(b.p[1] - a.p[1], b.p[0] - a.p[0]);
+    return { p, ang };
+  };
+  const width = (u: number) => halfW * (1 - 0.18 * u) * (u > 0.94 ? Math.sqrt(Math.max(0, (1 - u) / 0.06)) * 0.6 + 0.4 : 1);
+  const noise = makeNoise(seed);
+  const darkAt = (u: number, p: Pt) => {
+    const band = 0.5 + 0.5 * Math.sin(2 * Math.PI * stripes * u - Math.PI / 2);
+    let D = 0.15 + 0.75 * smooth(0.35, 0.68, band) + (noise(p[0], p[1], 6) - 0.5) * 0.35;
+    D += smooth(0.86, 0.95, u) * 0.8; // 先端は黒
+    return D;
+  };
+  const r = rng(seed);
+  const blobGroups = new Map<string, string[]>();
+  const furGroups = new Map<string, string[]>();
+  const push = (m: Map<string, string[]>, c: string, seg: string) => {
+    const l = m.get(c) ?? [];
+    l.push(seg);
+    m.set(c, l);
+  };
+  // 下地のまだら（ぼかす）
+  for (let i = 0; i < 110; i++) {
+    const u = r();
+    const { p, ang } = at(u);
+    const off = (r() * 2 - 1) * width(u) * 0.7;
+    const q: Pt = [p[0] - Math.sin(ang) * off, p[1] + Math.cos(ang) * off];
+    const c = sample(mixFromDark(darkAt(u, q)), r(), r(), PALS.body);
+    const rad = width(u) * (0.55 + r() * 0.4);
+    push(blobGroups, c, `M${f(q[0] - rad)} ${f(q[1])}a${f(rad)} ${f(rad)} 0 1 0 ${f(rad * 2)} 0a${f(rad)} ${f(rad)} 0 1 0 ${f(-rad * 2)} 0`);
+  }
+  // 毛（先端に向かって流れる）
+  const count = Math.round(total * halfW * 0.75);
+  for (let i = 0; i < count; i++) {
+    const u = r();
+    const { p, ang } = at(u);
+    const off = (r() * 2 - 1) * width(u);
+    const q: Pt = [p[0] - Math.sin(ang) * off, p[1] + Math.cos(ang) * off];
+    const c = sample(mixFromDark(darkAt(u, q)), r(), r(), PALS.body);
+    const a = ang + (r() - 0.5) * 0.5 + (off / halfW) * 0.25;
+    const l = 2.5 + r() * 3.5;
+    push(furGroups, c, `M${f(q[0])} ${f(q[1])}l${f(Math.cos(a) * l)} ${f(Math.sin(a) * l)}`);
+  }
+  const base = `M${segs[0][0].join(",")} ${segs.map((sg) => `C${sg[1].join(",")} ${sg[2].join(",")} ${sg[3].join(",")}`).join(" ")}`;
+  const blobsSvg = [...blobGroups.entries()].map(([c, d]) => `<path d="${d.join("")}" fill="${c}"/>`).join("");
+  const furSvg = [...furGroups.entries()]
+    .map(([c, d]) => `<path d="${d.join("")}" stroke="${c}" stroke-width="0.9" stroke-linecap="round" fill="none"/>`)
+    .join("");
+  return `<path d="${base}" stroke="#7a5132" stroke-width="${halfW * 2 - 1}" stroke-linecap="round" fill="none"/>
+<g filter="url(#${softFilter})">${blobsSvg}</g>${furSvg}`;
+}
+
+const SIT_TAIL: Seg[] = [
+  [[176, 286], [232, 294], [242, 250], [226, 222]],
+  [[226, 222], [220, 212], [214, 206], [210, 199]],
+];
+const WALK_TAIL_SEGS: Seg[] = [
+  [[86, 100], [46, 92], [32, 64], [38, 36]],
+  [[38, 36], [40, 26], [46, 18], [54, 13]],
+];
+
 function sittingParts(id: string) {
   const pawPts = (cx: number): ((p: Pt) => boolean) => (p) => inEllipse(p, cx, 289, 18, 11);
   const legBars = (x0: number) =>
@@ -353,11 +445,7 @@ function sittingParts(id: string) {
 <filter id="${id}-tsoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".7"/></filter>
 <radialGradient id="${id}-shade"><stop offset="0" stop-color="#1d140e" stop-opacity=".55"/><stop offset="1" stop-color="#1d140e" stop-opacity="0"/></radialGradient>
 <clipPath id="${id}-legs"><path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z"/></clipPath></defs>`,
-    tail: `<g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8692f" stroke-width="16" fill="none" stroke-linecap="round"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#d08240" stroke-width="7" fill="none" stroke-linecap="round" opacity=".55"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#231912" stroke-width="16.5" fill="none" stroke-dasharray="0 9 8 9 8 9 8 9 8 9 8 9 8 9 8 8 30" opacity=".92" filter="url(#${id}-tsoft)"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#7a4a26" stroke-width="2" fill="none" stroke-dasharray="2 5" opacity=".5"/>
-<circle cx="210.5" cy="201" r="8.2" fill="#231912" filter="url(#${id}-tsoft)"/></g>`,
+    tail: `<g class="cat-tail">${furryTail(SIT_TAIL, 8.5, 61, 5, `${id}-bsoft`)}</g>`,
     body: `<g class="cat-breath">
 <path d="${BODY_PATH}" fill="#7a5132"/>
 <g clip-path="url(#${id}-body)">
@@ -392,17 +480,15 @@ ${fur({
 <path d="M48,214 Q60,206 74,212"/><path d="M44,232 Q58,224 72,230"/><path d="M168,212 Q182,206 194,214"/>
 </g>
 <g clip-path="url(#${id}-legs)">
-<path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z" fill="#a9632f"/>
-<path d="M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z" fill="#8a5530"/>
 ${fur({ seed: 41, count: 640, box: [80, 220, 160, 292], inside: (p) => inPoly(p, LEG_L) || inPoly(p, LEG_R), mix: legMix, dir: () => Math.PI / 2, len: [2.5, 5], width: 0.9, pal: "body" })}
-<path d="${legBars(84)} ${legBars(124)}" stroke="#20150e" stroke-width="2.4" fill="none" opacity=".28" stroke-linecap="round" filter="url(#${id}-bsoft)"/>
+<path d="${legBars(84)} ${legBars(124)}" stroke="#20150e" stroke-width="2.4" fill="none" opacity=".22" stroke-linecap="round" filter="url(#${id}-bsoft)"/>
 </g>
-<path d="M117,232 C118,254 118,272 117,288 M123,232 C122,254 122,272 123,288" stroke="#2a1c13" stroke-width="1.2" opacity=".3" fill="none"/>
+<path d="M118,236 C119,256 119,274 118,288 M122,236 C121,256 121,274 122,288" stroke="#2a1c13" stroke-width="2" opacity=".18" fill="none" filter="url(#${id}-bsoft)"/>
 </g>
-<ellipse cx="100" cy="289" rx="18" ry="11" fill="#b56e38"/><ellipse cx="140" cy="289" rx="18" ry="11" fill="#a0602f"/>
-${fur({ seed: 31, count: 110, box: [80, 276, 120, 302], inside: pawPts(100), mix: () => [0.75, 0.2, 0.02, 0.03], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
-${fur({ seed: 32, count: 110, box: [120, 276, 160, 302], inside: pawPts(140), mix: () => [0.6, 0.3, 0.1, 0], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
-<path d="M94,293 l0,5 M100,294 l0,5 M106,293 l0,5 M134,293 l0,5 M140,294 l0,5 M146,293 l0,5" stroke="#1c130d" stroke-width="1.3" opacity=".6"/>
+<g filter="url(#${id}-bsoft)"><ellipse cx="100" cy="289" rx="17" ry="10" fill="#b56e38"/><ellipse cx="140" cy="289" rx="17" ry="10" fill="#a0602f"/></g>
+${fur({ seed: 31, count: 160, box: [80, 276, 120, 302], inside: pawPts(100), mix: () => [0.72, 0.2, 0.05, 0.03], dir: () => Math.PI / 2, len: [2, 3.8], width: 0.9, pal: "body" })}
+${fur({ seed: 32, count: 160, box: [120, 276, 160, 302], inside: pawPts(140), mix: () => [0.58, 0.28, 0.14, 0], dir: () => Math.PI / 2, len: [2, 3.8], width: 0.9, pal: "body" })}
+<path d="M94,293 l0,4 M100,294 l0,4 M106,293 l0,4 M134,293 l0,4 M140,294 l0,4 M146,293 l0,4" stroke="#1c130d" stroke-width="1.1" opacity=".35"/>
 </g>`,
   };
 }
@@ -440,7 +526,6 @@ export function catSittingEyesInner(id: string): string {
 // ---------------------------------------------------------------------
 
 const WALK_BODY = "M72,98 C70,72 112,62 160,64 C204,66 236,74 242,98 C246,124 232,144 206,149 C170,156 130,156 100,149 C78,144 70,124 72,98Z";
-const WALK_TAIL = "M78,98 C46,92 32,64 38,36 C40,26 46,18 54,14";
 const walkNoise = makeNoise(21);
 
 function walkMix(p: Pt): Mix {
@@ -466,27 +551,39 @@ export function catWalkLayerSvgs(): Record<"body" | "tail", string> {
 <g filter="url(#${id}-soft)">${blobs({ seed: 51, count: 420, box: [66, 60, 248, 150], inside: insideBody, mix: (p) => { const m = walkMix(p); return [m[0], m[1] + m[2] * 0.7, m[2] * 0.3, m[3]]; }, r: [4, 7], pal: "body" })}</g>
 ${fur({ seed: 52, count: 3000, box: [66, 60, 248, 150], inside: insideBody, mix: walkMix, dir: ([, y]) => Math.PI * 0.94 + ((y - 100) / 50) * 0.5, len: [3, 6.5], width: 0.9, pal: "body" })}
 </g>`;
-  const tail = `${defs}<path d="${WALK_TAIL}" stroke="#b8692f" stroke-width="15" fill="none" stroke-linecap="round"/>
-<path d="${WALK_TAIL}" stroke="#d08240" stroke-width="6" fill="none" stroke-linecap="round" opacity=".5"/>
-<path d="${WALK_TAIL}" stroke="#231912" stroke-width="15.5" fill="none" stroke-dasharray="0 9 8 9 8 9 8 9 8 9 8 30" opacity=".92" filter="url(#${id}-tsoft)"/>
-<circle cx="54.5" cy="14.5" r="7.6" fill="#231912" filter="url(#${id}-tsoft)"/>`;
+  const tail = `${defs}${furryTail(WALK_TAIL_SEGS, 7.5, 62, 5, `${id}-soft`)}`;
   return { body: wrap(body), tail: wrap(tail) };
 }
 
-/** 歩く脚（インライン用）。far = 奥の脚（暗め） */
+/** 歩く脚（インライン用）。far = 奥の脚（暗め）。体と同じ毛並みで描く */
 export function catWalkLegsInner(which: "far" | "near"): string {
   const legs = which === "far" ? [{ x: 114, ph: "a" }, { x: 194, ph: "b" }] : [{ x: 94, ph: "b" }, { x: 214, ph: "a" }];
-  const fill = which === "far" ? "#6a4529" : "#b36631";
-  const paw = which === "far" ? "#5c3c25" : "#c3753b";
-  return legs
-    .map(
-      ({ x, ph }) => `<g class="cat-leg cat-leg-${ph}">
-<path d="M${x - 9},112 C${x - 9},140 ${x - 7},160 ${x - 6},176 Q${x + 1},186 ${x + 8},177 C${x + 8},160 ${x + 9},140 ${x + 9},112 Z" fill="${fill}"/>
-<path d="M${x - 8},158 l16,-2 M${x - 7},168 l15,-2" stroke="#1f150e" stroke-width="2.6" opacity=".4" stroke-linecap="round"/>
-<ellipse cx="${x + 2}" cy="180" rx="10" ry="5.5" fill="${paw}"/>
-</g>`,
-    )
-    .join("");
+  const baseD = which === "far" ? 0.62 : 0.32;
+  const base = which === "far" ? "#4a3122" : "#9a5a2c";
+  const pawFill = which === "far" ? "#5c3c25" : "#b8733a";
+  const fid = `wl-${which}`;
+  return (
+    `<defs><filter id="${fid}" x="-30%" y="-10%" width="160%" height="120%"><feGaussianBlur stdDeviation="1.3"/></filter></defs>` +
+    legs
+      .map(({ x, ph }, i) => {
+        const poly: Pt[] = [[x - 9, 110], [x + 9, 110], [x + 8, 177], [x + 1, 185], [x - 6, 177]];
+        const shape = `M${x - 9},110 C${x - 9},140 ${x - 7},160 ${x - 6},176 Q${x + 1},186 ${x + 8},177 C${x + 8},160 ${x + 9},140 ${x + 9},110 Z`;
+        const n = makeNoise(70 + i + (which === "far" ? 10 : 0));
+        const mix = ([px, py]: Pt): Mix => {
+          const band = 0.5 + 0.5 * Math.sin((py - 128) / 6.5);
+          const D = baseD + 0.4 * smooth(0.55, 0.85, band) + (n(px, py, 7) - 0.5) * 0.4;
+          return mixFromDark(D, 0, false);
+        };
+        return `<g class="cat-leg cat-leg-${ph}">
+<path d="${shape}" fill="${base}"/>
+<g filter="url(#${fid})">${blobs({ seed: 80 + i, count: 34, box: [x - 10, 108, x + 10, 186], inside: (p) => inPoly(p, poly), mix, r: [3, 5], pal: "body" })}</g>
+${fur({ seed: 90 + i, count: 230, box: [x - 10, 108, x + 10, 186], inside: (p) => inPoly(p, poly), mix, dir: () => Math.PI / 2, len: [2.5, 4.5], width: 0.85, pal: "body" })}
+<g filter="url(#${fid})"><ellipse cx="${x + 1}" cy="180" rx="10" ry="5.5" fill="${pawFill}"/></g>
+${fur({ seed: 95 + i, count: 40, box: [x - 9, 174, x + 11, 186], inside: (p) => inEllipse(p, x + 1, 180, 10, 5.5), mix: () => (which === "far" ? [0.3, 0.4, 0.3, 0] : [0.7, 0.22, 0.05, 0.03]), dir: () => 0, len: [1.5, 3], width: 0.8, pal: "body" })}
+</g>`;
+      })
+      .join("")
+  );
 }
 
 /** アプリアイコン用（背景つき・正方形） */
