@@ -2,6 +2,7 @@
 // サーバーが本来のメール・パスワードで Supabase にログインしてセッションを返す。
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { OWNER_EMAIL } from "@/lib/serverAuth";
 
 export const maxDuration = 15;
 
@@ -16,11 +17,11 @@ export async function POST(req: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const pinEnv = process.env.LOGIN_PIN;
-  const email = process.env.LOGIN_EMAIL;
+  const email = OWNER_EMAIL;
   const password = process.env.LOGIN_PASSWORD;
-  if (!url || !key || !pinEnv || !email || !password) {
+  if (!url || !key || !pinEnv || !password) {
     return Response.json(
-      { error: "PIN ログインの設定がされていません（LOGIN_PIN / LOGIN_EMAIL / LOGIN_PASSWORD）" },
+      { error: "番号ログインの設定がされていません（Vercel の環境変数 LOGIN_PIN / LOGIN_PASSWORD）" },
       { status: 500 },
     );
   }
@@ -49,7 +50,40 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data, error } = await anon.auth.signInWithPassword({ email, password });
+  let { data, error } = await anon.auth.signInWithPassword({ email, password });
+
+  // 初回: 内部ユーザーがまだ無ければ作る（正しい PIN のときだけ通る）
+  if (error && /invalid login credentials/i.test(error.message)) {
+    // 「Confirm email」がオンのまま作ると未確認ユーザーができて詰まるので、先に設定を確認する
+    const settings = (await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+      .then((r) => r.json())
+      .catch(() => ({}))) as { mailer_autoconfirm?: boolean; disable_signup?: boolean };
+    if (!settings.mailer_autoconfirm || settings.disable_signup) {
+      return Response.json(
+        {
+          error:
+            "初回設定がまだです。Supabase の Authentication → Sign In / Providers → Email で「Confirm email」をオフ（新規登録はオンのまま）にしてから、もう一度番号を入力してください",
+        },
+        { status: 500 },
+      );
+    }
+    const created = await anon.auth.signUp({ email, password });
+    if (created.error) {
+      return Response.json({ error: `初回設定に失敗しました: ${created.error.message}` }, { status: 500 });
+    }
+    if (!created.data.session) {
+      return Response.json(
+        {
+          error:
+            "初回設定の途中です。Supabase の Authentication → Sign In / Providers → Email の「Confirm email」をオフにしてから、もう一度番号を入力してください",
+        },
+        { status: 500 },
+      );
+    }
+    data = { user: created.data.user!, session: created.data.session };
+    error = null;
+  }
+
   if (error || !data.session) {
     return Response.json({ error: `ログインできませんでした: ${error?.message ?? "不明なエラー"}` }, { status: 500 });
   }

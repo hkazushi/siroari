@@ -3,7 +3,7 @@
 東山メンテナンス（害虫駆除業・個人事業）専用の **青色申告用 会計アプリ**。
 freee / マネーフォワード / 弥生 の代わりに、日々の取引入力から確定申告用の決算書資料までを 1 つで行う。
 
-- 本番: https://higashiyama-kaikei.vercel.app
+- 本番: https://gaicyu-madori.vercel.app（Vercel プロジェクト gaicyu-madori をそのまま使用）
 - リポジトリ: https://github.com/hkazushi/siroari（旧アプリ「害虫駆除 現場マップ」は タグ `v1-madorich`）
 
 イメージキャラは **サビ猫**（ロゴ・アプリアイコン・ログイン画面、画面右下に座っていてタップすると経理のひとこと）。
@@ -35,21 +35,21 @@ Next.js 16（App Router）/ React 19 / Tailwind CSS v4 / Supabase（Auth・Postg
 ## セットアップ
 
 1. Supabase の SQL Editor で `supabase/schema.sql` を実行
-2. Supabase → Authentication → Users → Add user（Auto Confirm）でログイン用ユーザーを作成し、Sign In / Providers で新規登録（Allow new users to sign up）を OFF
-3. `.env.local`（Vercel の Environment Variables も同じ）
+2. Supabase → Authentication → Sign In / Providers → Email の「Confirm email」をオフ
+3. 環境変数（`.env.local` と Vercel の Environment Variables）
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # sb_publishable_...
 OPENROUTER_API_KEY=...
 LOGIN_PIN=....                      # ログイン画面の 4 桁の番号
-LOGIN_EMAIL=...                     # 2 で作ったユーザーのメール
-LOGIN_PASSWORD=...                  # 2 で作ったユーザーのパスワード
+LOGIN_PASSWORD=...                  # 内部ユーザーのパスワード（長いランダム文字列）
 ```
 
-ログイン画面は 4 桁の番号。5 回間違えるとロック（15 分から倍々、最長 24 時間）。
+4. 本番で番号を入力すると、初回だけ内部ユーザー（`owner@higashiyama-kaikei.example.com`）が自動で作られてログインできる
+5. その後 Supabase で「Allow new users to sign up」をオフ（他人の新規登録を止める）
 
-4. `npm install && npm run dev`
+ログイン画面は 4 桁の番号だけ。5 回間違えるとロック（15 分から倍々、最長 24 時間）。メールアドレスの登録は不要。
 
 ## 注意
 

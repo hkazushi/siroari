@@ -7,7 +7,7 @@ import { isCloudConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/data";
 import { YearProvider } from "@/lib/year";
 import { CatSitting } from "./Cat";
-import { Button, Field, Input, Spinner } from "./ui";
+import { Spinner } from "./ui";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -40,7 +40,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function Login() {
-  const [mode, setMode] = useState<"pin" | "email">("pin");
   return (
     <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -56,14 +55,7 @@ function Login() {
             Supabase の環境変数（NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY）が未設定です。
           </p>
         )}
-        {mode === "pin" ? <PinLogin /> : <EmailLogin />}
-        <button
-          type="button"
-          className="mt-4 w-full text-center text-xs text-slate-500 hover:text-slate-800"
-          onClick={() => setMode(mode === "pin" ? "email" : "pin")}
-        >
-          {mode === "pin" ? "メールアドレスでログイン" : "番号でログイン"}
-        </button>
+        <PinLogin />
       </div>
     </div>
   );
@@ -178,50 +170,5 @@ function PinLogin() {
         {busy ? <Spinner className="text-slate-500" /> : error && <span className="text-red-700">{error}</span>}
       </div>
     </div>
-  );
-}
-
-function EmailLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { error } = await supabase().auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) {
-      setError(
-        error.message.includes("Invalid login")
-          ? "メールアドレスまたはパスワードが違います"
-          : `ログインできませんでした: ${error.message}`,
-      );
-    }
-  }
-
-  return (
-    <form onSubmit={submit}>
-      <div className="space-y-3">
-        <Field label="メールアドレス">
-          <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </Field>
-        <Field label="パスワード">
-          <Input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </Field>
-      </div>
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-      <Button type="submit" className="mt-5 w-full" disabled={busy}>
-        {busy ? <Spinner /> : "ログイン"}
-      </Button>
-    </form>
   );
 }

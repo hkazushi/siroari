@@ -54,7 +54,7 @@ export async function openRouterChat({
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://higashiyama-kaikei.vercel.app",
+      "HTTP-Referer": "https://gaicyu-madori.vercel.app",
       "X-Title": "Higashiyama Kaikei",
     },
     body: JSON.stringify(body),

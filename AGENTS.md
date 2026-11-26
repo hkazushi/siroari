@@ -48,9 +48,11 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 
 ### 認証
 
-- ログイン画面は **4桁の番号（PIN）**。照合は `/api/auth/pin`（サーバー）だけで行い、合っていればサーバーが `LOGIN_EMAIL` / `LOGIN_PASSWORD` で Supabase にログインしてセッションを返す（クライアントは `setSession`）。**PIN をクライアントのコードに書かない**
-- 総当たり対策: `login_guard` テーブル＋ `pin_guard_*` 関数（schema.sql の 9）。5 回失敗でロック、ロック時間は倍々で最長 24 時間。リセット関数は authenticated のみ実行可（anon に grant しないこと）
-- 予備としてメールアドレス＋パスワードでもログインできる（ログイン画面の下のリンク）
+- ログイン画面は **4桁の番号（PIN）だけ**。メールでのログイン画面は無い（2026-11-26 ユーザー判断: 固定の番号で開ければよい）
+- 照合は `/api/auth/pin`（サーバー）だけ。合っていればサーバーが内部ユーザー（`OWNER_EMAIL`、パスワードは `LOGIN_PASSWORD`）で Supabase にログインしてセッションを返す（クライアントは `setSession`）。内部ユーザーが無ければ初回だけ自動作成（Supabase の Confirm email がオフのときのみ）
+- **リポジトリは PUBLIC**。PIN・パスワードをコードに書かない（環境変数のみ）
+- `/api/ai/*` は内部ユーザー以外を 403 にする（新規登録が開いていても AI を使われないように）
+- 総当たり対策: `login_guard` テーブル＋ `pin_guard_*` 関数（schema.sql の 9）。5 回失敗でロック、ロック時間は倍々で最長 24 時間。リセット関数は authenticated のみ実行可（anon からは revoke 済み）
 - 画面側は `AuthGate` が未ログインならログイン画面を出す
 - RLS で `auth.uid() = user_id` の行のみ。insert 時の `user_id` は DB の default `auth.uid()` に任せている
 - `/api/ai/*` は `requireUser`（`src/lib/serverAuth.ts`）で Bearer トークンを検証。クライアントは `useData().callApi` を使う
@@ -77,6 +79,7 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 - **Supabase が NXDOMAIN / 接続できない**（2026-11-26）: 無料プランは 7 日間アクセスが無いと一時停止 → Dashboard から Resume（数分で復帰）
 - **GitHub Actions のデプロイが invalidToken で失敗**（2026-11-26）: Secrets の `VERCEL_TOKEN` が失効 → Actions デプロイは廃止し、Vercel の Git 連携（push で自動デプロイ）に切り替えた
 - **React 19 の lint**: effect 内の同期 setState は `react-hooks/set-state-in-effect`、render 中の `Date.now()` は `react-hooks/purity`、render 中の変数再代入は `react-hooks/immutability` で落ちる → `queueMicrotask` / `useState(() => ...)` / reduce で回避
+- **SQL で作った関数が anon から実行できてしまう**（2026-11-26）: Supabase は public スキーマの関数に anon/authenticated の EXECUTE を既定で付ける。`revoke ... from public` だけでは外れない → `revoke execute on function ... from anon;` を明示する。作成後に anon キーで `/rest/v1/rpc/<関数>` を叩いて 401/403 になることを確認
 - **`gh secret set --body -`** は "-" という文字列を保存する（2026-05）→ `--body '値'` で渡す
 - **毛並みの多いインライン SVG を CSS アニメで動かすと重い**（2026-11-26）: 数千本の path＋ぼかしを毎フレーム再描画し、背景の猫だけで 60fps → 32fps に落ちた → 動かない部分は画像（`<img>`）にして transform で動かす。変更後は rAF で fps を計測して確認する
 - **dev サーバーが古い globals.css を返し続ける**（2026-11-26）: 再起動しても直らなかった → `.next` を削除してから起動し直す
@@ -84,7 +87,7 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 
 ## デプロイ
 
-- Vercel プロジェクト `higashiyama-kaikei`（GitHub 連携。main への push で自動デプロイ）
-- 本番: https://higashiyama-kaikei.vercel.app
-- 環境変数: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `OPENROUTER_API_KEY` / `LOGIN_PIN` / `LOGIN_EMAIL` / `LOGIN_PASSWORD`
+- Vercel プロジェクト `gaicyu-madori`（旧アプリのものを再利用。GitHub 連携で main への push が自動デプロイ）
+- 本番: https://gaicyu-madori.vercel.app（Vercel プロジェクト gaicyu-madori をそのまま使用）
+- 環境変数: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `OPENROUTER_API_KEY` / `LOGIN_PIN` / `LOGIN_PASSWORD`（`LOGIN_EMAIL` は任意。省略時 `owner@higashiyama-kaikei.example.com`）
 - DB スキーマ: `supabase/schema.sql`（冪等。SQL Editor に貼って実行）

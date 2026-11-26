@@ -249,3 +249,5 @@ revoke all on function public.pin_guard_success() from public;
 grant execute on function public.pin_guard_status() to anon, authenticated;
 grant execute on function public.pin_guard_fail() to anon, authenticated;
 grant execute on function public.pin_guard_success() to authenticated;
+-- Supabase は public スキーマの関数に anon への実行権限を既定で付けるため、明示的に外す
+revoke execute on function public.pin_guard_success() from anon;
