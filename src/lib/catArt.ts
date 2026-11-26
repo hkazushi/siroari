@@ -9,10 +9,22 @@
 
 type Pt = [number, number];
 
-const DARK = ["#211812", "#2d221a", "#3b2e24"];
-const BROWN = ["#5c4636", "#6c5442", "#7b604a"];
-const ORANGE = ["#a8693a", "#b07343", "#c0824c", "#cf9358"];
-const CREAM = ["#cfa77a", "#dcb88c", "#e4c59c"];
+// 顔用と体用で色を分ける（写真では体の方が赤みの強いオレンジ）
+type Pal = { O: string[]; B: string[]; D: string[]; C: string[] };
+const PALS: Record<"head" | "body", Pal> = {
+  head: {
+    O: ["#b06b37", "#c07a42", "#d08c52", "#dc9c64"],
+    B: ["#5e4433", "#6e523d", "#7c5d44"],
+    D: ["#201711", "#2c2119", "#3a2c22"],
+    C: ["#d6a877", "#e0b98a", "#e9c79c"],
+  },
+  body: {
+    O: ["#a35a28", "#b36631", "#c3753b", "#cf8446"],
+    B: ["#5c3c25", "#6a4529", "#7a5131"],
+    D: ["#201711", "#2c2119", "#3a2c22"],
+    C: ["#c98d56", "#d69c64"],
+  },
+};
 
 /** [オレンジ, 茶, 黒, クリーム] の割合 */
 type Mix = [number, number, number, number];
@@ -48,15 +60,15 @@ const pick = (arr: string[], r: number) => arr[Math.floor(r * arr.length) % arr.
 const f = (n: number) => Math.round(n * 10) / 10;
 
 /** 割合に従って色を選ぶ */
-function sample(m: Mix, r: number, r2: number): string {
+function sample(m: Mix, r: number, r2: number, pal: Pal): string {
   const total = m[0] + m[1] + m[2] + m[3];
   let t = r * total;
-  const fams = [ORANGE, BROWN, DARK, CREAM];
+  const fams = [pal.O, pal.B, pal.D, pal.C];
   for (let i = 0; i < 4; i++) {
     if (t < m[i]) return pick(fams[i], r2);
     t -= m[i];
   }
-  return pick(BROWN, r2);
+  return pick(pal.B, r2);
 }
 
 /** 色ごとに 1 本の path にまとめた毛並みストローク */
@@ -69,6 +81,7 @@ function fur(opts: {
   dir: (p: Pt) => number;
   len: [number, number];
   width: number;
+  pal?: "head" | "body";
 }): string {
   const r = rng(opts.seed);
   const [x0, y0, x1, y1] = opts.box;
@@ -78,7 +91,7 @@ function fur(opts: {
   while (made < opts.count && guard++ < opts.count * 20) {
     const p: Pt = [x0 + r() * (x1 - x0), y0 + r() * (y1 - y0)];
     if (!opts.inside(p)) continue;
-    const c = sample(opts.mix(p), r(), r());
+    const c = sample(opts.mix(p), r(), r(), PALS[opts.pal ?? "head"]);
     const a = opts.dir(p) + (r() - 0.5) * 0.6;
     const l = opts.len[0] + r() * (opts.len[1] - opts.len[0]);
     const seg = `M${f(p[0])} ${f(p[1])}l${f(Math.cos(a) * l)} ${f(Math.sin(a) * l)}`;
@@ -103,6 +116,7 @@ function blobs(opts: {
   inside: (p: Pt) => boolean;
   mix: (p: Pt) => Mix;
   r: [number, number];
+  pal?: "head" | "body";
 }): string {
   const r = rng(opts.seed);
   const [x0, y0, x1, y1] = opts.box;
@@ -112,7 +126,7 @@ function blobs(opts: {
   while (made < opts.count && guard++ < opts.count * 20) {
     const p: Pt = [x0 + r() * (x1 - x0), y0 + r() * (y1 - y0)];
     if (!opts.inside(p)) continue;
-    const c = sample(opts.mix(p), r(), r());
+    const c = sample(opts.mix(p), r(), r(), PALS[opts.pal ?? "head"]);
     const rad = opts.r[0] + r() * (opts.r[1] - opts.r[0]);
     // 円を path で表現（M x-r y a r r 0 1 0 2r 0 a r r 0 1 0 -2r 0）
     const seg = `M${f(p[0] - rad)} ${f(p[1])}a${f(rad)} ${f(rad)} 0 1 0 ${f(rad * 2)} 0a${f(rad)} ${f(rad)} 0 1 0 ${f(-rad * 2)} 0`;
@@ -149,15 +163,15 @@ const BLAZE_D =
 function headMix(p: Pt): Mix {
   const [x, y] = p;
   if (inPoly(p, STRIPE)) return [0.05, 0.12, 0.83, 0];
-  if (inPoly(p, BLAZE)) return [0.82, 0.08, 0.04, 0.06];
+  if (inPoly(p, BLAZE)) return [0.72, 0.06, 0.04, 0.18];
   if (inEllipse(p, 110, 151, 22, 14)) return [0.02, 0.08, 0.9, 0]; // 鼻の下〜口元右: 黒
   if (inEllipse(p, 104, 165, 18, 9)) return [0.02, 0.13, 0.85, 0]; // あご: 黒
   if (inEllipse(p, 81, 150, 12, 10)) return [0.3, 0.08, 0.02, 0.6]; // 口元左: 明るい茶
   if (inEllipse(p, 84, 166, 10, 6)) return [0.2, 0.25, 0.1, 0.45]; // あご左: ベージュ
   if (inEllipse(p, 131, 128, 12, 8)) return [0.1, 0.3, 0.6, 0]; // 右目の下: 暗い
-  if (inEllipse(p, 58, 128, 26, 24)) return [0.55, 0.22, 0.1, 0.13]; // 左頬: 金色っぽい茶
+  if (inEllipse(p, 58, 128, 26, 24)) return [0.62, 0.2, 0.1, 0.08]; // 左頬: オレンジ
   if (inEllipse(p, 72, 86, 24, 16)) return [0.45, 0.33, 0.22, 0]; // 左の額
-  if (inEllipse(p, 148, 128, 22, 24)) return [0.35, 0.4, 0.25, 0]; // 右頬: 茶とオレンジのまだら
+  if (inEllipse(p, 148, 128, 22, 24)) return [0.42, 0.33, 0.25, 0]; // 右頬: 茶とオレンジのまだら
   if (x > 132 && y < 104) return [0.4, 0.35, 0.25, 0]; // 右目の上〜外側
   if (y < 72) return [0.15, 0.35, 0.5, 0]; // 頭頂
   return [0.3, 0.4, 0.3, 0];
@@ -166,7 +180,7 @@ function headMix(p: Pt): Mix {
 function eye(cx: number, cy: number, id: string): string {
   return `<g class="cat-eye">
 <ellipse cx="${cx}" cy="${cy}" rx="15.5" ry="14.5" fill="url(#${id}-iris)" stroke="#120b07" stroke-width="2.6"/>
-<g class="cat-pupils"><ellipse cx="${cx}" cy="${cy + 0.5}" rx="7.6" ry="10.8" fill="#100a06"/>
+<g class="cat-pupils"><ellipse cx="${cx}" cy="${cy + 0.5}" rx="6.4" ry="10" fill="#100a06"/>
 <circle cx="${cx - 4.5}" cy="${cy - 5.5}" r="3.4" fill="#fff" opacity=".9"/><circle cx="${cx + 4}" cy="${cy + 5}" r="1.4" fill="#fff" opacity=".6"/></g>
 </g>`;
 }
@@ -182,8 +196,8 @@ export function catHeadInner(id = "cat"): string {
     fur({ seed, count: 170, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2, 4], width: 1.3 });
 
   return `<defs>
-<radialGradient id="${id}-iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#d2d4a8"/><stop offset=".5" stop-color="#a3a97f"/><stop offset="1" stop-color="#636c4c"/></radialGradient>
-<linearGradient id="${id}-inear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2621"/><stop offset=".7" stop-color="#7a4f45"/><stop offset="1" stop-color="#9a6a5c"/></linearGradient>
+<radialGradient id="${id}-iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#e0cd78"/><stop offset=".45" stop-color="#c4a84a"/><stop offset=".8" stop-color="#97802f"/><stop offset="1" stop-color="#5f5222"/></radialGradient>
+<linearGradient id="${id}-inear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3530"/><stop offset=".6" stop-color="#8f6c66"/><stop offset="1" stop-color="#b08a82"/></linearGradient>
 <clipPath id="${id}-head"><path d="${HEAD_PATH}"/></clipPath>
 <clipPath id="${id}-earl"><path d="${EAR_L}"/></clipPath>
 <clipPath id="${id}-earr"><path d="${EAR_R}"/></clipPath>
@@ -194,10 +208,10 @@ export function catHeadInner(id = "cat"): string {
 <g class="cat-ear-r"><path d="${EAR_R}" fill="#2a2019"/><g clip-path="url(#${id}-earr)">${earFur(12, EAR_R_PTS, earMixR)}</g>
 <path d="M149,90 L147,33 L111,68 Z" fill="url(#${id}-inear)"/>
 <path d="M142,72 l6,-12 M138,76 l4,-13 M144,81 l8,-9 M134,79 l2,-12" stroke="#e2d2c0" stroke-width=".9" opacity=".7"/></g>
-<path d="${HEAD_PATH}" fill="#66503d"/>
+<path d="${HEAD_PATH}" fill="#6b4f3a"/>
 <g clip-path="url(#${id}-head)">
 ${blobs({ seed: 5, count: 230, box: [28, 56, 172, 176], inside: insideHead, mix: headMix, r: [4, 8] })}
-<path d="${BLAZE_D}" fill="#c3854b"/>
+<path d="${BLAZE_D}" fill="#cf8f58"/>
 <path d="${STRIPE_D}" fill="#231a13"/>
 <ellipse cx="110" cy="151" rx="21" ry="13" fill="#1f1610"/>
 <ellipse cx="104" cy="165" rx="17" ry="8" fill="#241a13"/>
@@ -228,21 +242,21 @@ ${eye(74, 111, id)}${eye(127, 111, id)}
 // 座った全身（viewBox 0 0 240 300）
 // ---------------------------------------------------------------------
 
-const BODY_PATH = "M64,148 C42,188 34,250 46,292 Q120,302 194,292 C206,250 198,188 176,148 Z";
-const BODY_PTS: Pt[] = [[64, 148], [176, 148], [204, 250], [194, 298], [46, 298], [36, 250]];
+const BODY_PATH = "M62,148 C36,190 28,252 42,292 Q120,304 198,292 C212,252 204,190 178,148 Z";
+const BODY_PTS: Pt[] = [[62, 148], [178, 148], [210, 250], [198, 300], [42, 300], [30, 250]];
 
 function bodyMix(p: Pt): Mix {
-  if (inEllipse(p, 120, 158, 30, 14)) return [0.4, 0.38, 0.14, 0.08]; // のど
-  if (inEllipse(p, 68, 212, 32, 52)) return [0.66, 0.2, 0.14, 0]; // 左肩〜脇: 明るいオレンジ
-  if (inEllipse(p, 62, 272, 26, 24)) return [0.5, 0.15, 0.35, 0]; // 左下: オレンジに黒
-  if (inEllipse(p, 180, 232, 28, 56)) return [0.18, 0.37, 0.45, 0]; // 右側: 暗め
-  if (inEllipse(p, 120, 205, 34, 40)) return [0.34, 0.44, 0.22, 0]; // 胸: キャラメル
-  return [0.35, 0.4, 0.25, 0];
+  if (inEllipse(p, 120, 158, 30, 14)) return [0.5, 0.3, 0.12, 0.08]; // のど
+  if (inEllipse(p, 66, 212, 34, 54)) return [0.72, 0.16, 0.12, 0]; // 左肩〜脇: 赤みのオレンジ
+  if (inEllipse(p, 60, 274, 28, 24)) return [0.55, 0.15, 0.3, 0]; // 左下: オレンジに黒
+  if (inEllipse(p, 184, 232, 30, 58)) return [0.35, 0.3, 0.35, 0]; // 右側: 黒のまだらが多め
+  if (inEllipse(p, 120, 205, 34, 40)) return [0.5, 0.33, 0.17, 0]; // 胸
+  return [0.55, 0.25, 0.2, 0];
 }
 
 const LEG_L: Pt[] = [[84, 222], [116, 222], [118, 290], [82, 290]];
 const LEG_R: Pt[] = [[124, 222], [156, 222], [158, 290], [122, 290]];
-const legMix = (p: Pt): Mix => (p[0] < 120 ? [0.58, 0.28, 0.14, 0] : [0.45, 0.33, 0.22, 0]);
+const legMix = (p: Pt): Mix => (p[0] < 120 ? [0.65, 0.22, 0.13, 0] : [0.5, 0.28, 0.22, 0]);
 
 export function catSittingInner(id = "cats"): string {
   const pawPts = (cx: number): ((p: Pt) => boolean) => (p) => inEllipse(p, cx, 289, 18, 11);
@@ -251,18 +265,34 @@ export function catSittingInner(id = "cats"): string {
       .map((y, i) => `M${x0 + 2},${y + (i % 2)} Q${x0 + 17},${y + 5} ${x0 + 32},${y - 1}`)
       .join(" ");
   return `<defs><clipPath id="${id}-body"><path d="${BODY_PATH}"/></clipPath>
+<radialGradient id="${id}-shade"><stop offset="0" stop-color="#1d140e" stop-opacity=".55"/><stop offset="1" stop-color="#1d140e" stop-opacity="0"/></radialGradient>
 <clipPath id="${id}-legs"><path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z"/></clipPath></defs>
 <g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#2d221a" stroke-width="17" fill="none" stroke-linecap="round"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#bf834c" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 7 9 6 3 9" opacity=".9"/>
-<path d="M190,286 C228,290 236,254 224,230" stroke="#6c5442" stroke-width="3" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/></g>
+<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8682f" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 7 9 6 3 9" opacity=".9"/>
+<path d="M190,286 C228,290 236,254 224,230" stroke="#7a5131" stroke-width="3" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/></g>
 <g class="cat-breath">
-<path d="${BODY_PATH}" fill="#66503d"/>
+<path d="${BODY_PATH}" fill="#7a5132"/>
 <g clip-path="url(#${id}-body)">
-${blobs({ seed: 19, count: 520, box: [34, 140, 206, 300], inside: (p) => inPoly(p, BODY_PTS), mix: bodyMix, r: [4, 7] })}
+${blobs({
+  seed: 19,
+  count: 560,
+  box: [28, 140, 212, 302],
+  inside: (p) => inPoly(p, BODY_PTS),
+  // 下地は黒を控えめにして斑点に見えないようにする（黒は毛並みで出す）
+  mix: (p) => {
+    const m = bodyMix(p);
+    return [m[0], m[1] + m[2] * 0.7, m[2] * 0.3, m[3]];
+  },
+  r: [4, 7],
+  pal: "body",
+})}
+<ellipse cx="192" cy="218" rx="46" ry="84" fill="url(#${id}-shade)"/>
+<ellipse cx="120" cy="150" rx="70" ry="20" fill="url(#${id}-shade)" opacity=".7"/>}
 ${fur({
   seed: 21,
-  count: 2300,
-  box: [34, 140, 206, 300],
+  count: 2500,
+  box: [28, 140, 212, 302],
+  pal: "body",
   inside: (p) => inPoly(p, BODY_PTS),
   mix: bodyMix,
   dir: ([x]) => Math.PI / 2 + (x - 120) / 160,
@@ -274,16 +304,16 @@ ${fur({
 <path d="M48,214 Q60,206 74,212"/><path d="M44,232 Q58,224 72,230"/><path d="M168,212 Q182,206 194,214"/>
 </g>
 <g clip-path="url(#${id}-legs)">
-<path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z" fill="#a8714a"/>
-<path d="M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z" fill="#7b604a"/>
-${fur({ seed: 41, count: 380, box: [80, 220, 160, 292], inside: (p) => inPoly(p, LEG_L) || inPoly(p, LEG_R), mix: legMix, dir: () => Math.PI / 2, len: [2, 4], width: 1.3 })}
+<path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z" fill="#a9632f"/>
+<path d="M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z" fill="#8a5530"/>
+${fur({ seed: 41, count: 380, box: [80, 220, 160, 292], inside: (p) => inPoly(p, LEG_L) || inPoly(p, LEG_R), mix: legMix, dir: () => Math.PI / 2, len: [2, 4], width: 1.3, pal: "body" })}
 <path d="${legBars(84)} ${legBars(124)}" stroke="#20150e" stroke-width="2" fill="none" opacity=".35" stroke-linecap="round"/>
 </g>
 <path d="M117,232 C118,254 118,272 117,288 M123,232 C122,254 122,272 123,288" stroke="#2a1c13" stroke-width="1.2" opacity=".3" fill="none"/>
 </g>
-<ellipse cx="100" cy="289" rx="18" ry="11" fill="#b98250"/><ellipse cx="140" cy="289" rx="18" ry="11" fill="#9d6c45"/>
-${fur({ seed: 31, count: 110, box: [80, 276, 120, 302], inside: pawPts(100), mix: () => [0.75, 0.2, 0.02, 0.03], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3 })}
-${fur({ seed: 32, count: 110, box: [120, 276, 160, 302], inside: pawPts(140), mix: () => [0.6, 0.3, 0.1, 0], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3 })}
+<ellipse cx="100" cy="289" rx="18" ry="11" fill="#b56e38"/><ellipse cx="140" cy="289" rx="18" ry="11" fill="#a0602f"/>
+${fur({ seed: 31, count: 110, box: [80, 276, 120, 302], inside: pawPts(100), mix: () => [0.75, 0.2, 0.02, 0.03], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
+${fur({ seed: 32, count: 110, box: [120, 276, 160, 302], inside: pawPts(140), mix: () => [0.6, 0.3, 0.1, 0], dir: () => Math.PI / 2, len: [2, 3.5], width: 1.3, pal: "body" })}
 <path d="M94,293 l0,5 M100,294 l0,5 M106,293 l0,5 M134,293 l0,5 M140,294 l0,5 M146,293 l0,5" stroke="#1c130d" stroke-width="1.3" opacity=".6"/>
 </g>
 <g class="cat-head" transform="translate(20 -6)">${catHeadInner(id)}</g>`;
