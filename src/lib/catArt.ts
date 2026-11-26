@@ -220,9 +220,12 @@ function headDark(p: Pt): { D: number; cream: number } {
   const n = headNoise(x, y, 14);
   const n2 = headNoise(x + 40, y - 30, 7);
   let D = 0.62 + (n - 0.5) * 0.75 + (n2 - 0.5) * 0.3; // 頭は全体に黒っぽく、まだら
-  D += (1 - smooth(58, 80, y)) * 0.15; // 頭頂はより黒
+  // 頭頂の「帽子」: 耳の間〜額の上が黒い。下の縁はノイズでガタつかせ、中央は少し下がる
+  const capEdge = 85 + (n - 0.5) * 12 + (n2 - 0.5) * 6 + (1 - smooth(6, 26, Math.abs(x - 99))) * 6;
+  const cap = 1 - smooth(capEdge - 7, capEdge + 5, y);
+  D += cap * 1.6;
   D += stripeField(p, n2) * 1.3;
-  D -= blazeField(p, n2) * 1.25;
+  D -= blazeField(p, n2) * 1.25 * (1 - cap * 0.85); // オレンジの流れは帽子の下から
   D -= softEllipse(p, 58, 128, 26, 24) * 0.3; // 左頬はオレンジ寄り
   D += softEllipse(p, 131, 128, 13, 9) * 0.25; // 右目の下は暗い
   D += softEllipse(p, 110, 152, 23, 15, 0.6) * 1.1; // 鼻の下〜口元右は黒
@@ -255,8 +258,8 @@ export function catHeadInner(id = "cat", opts: { eyes?: boolean } = {}): string 
   const withEyes = opts.eyes !== false;
   // 左耳は付け根にオレンジ、右耳はほぼ黒
   // 耳は付け根で頭の柄とつながり、先に行くほど黒くなる
-  const earMixL = (p: Pt): Mix => mixFromDark(0.62 + (headNoise(p[0], p[1], 10) - 0.5) * 0.9 - smooth(60, 95, p[1]) * 0.25);
-  const earMixR = (p: Pt): Mix => mixFromDark(0.72 + (headNoise(p[0] + 50, p[1], 10) - 0.5) * 0.8 - smooth(70, 95, p[1]) * 0.15);
+  const earMixL = (p: Pt): Mix => mixFromDark(0.85 + (headNoise(p[0], p[1], 10) - 0.5) * 0.6 - smooth(70, 100, p[1]) * 0.1);
+  const earMixR = (p: Pt): Mix => mixFromDark(0.9 + (headNoise(p[0] + 50, p[1], 10) - 0.5) * 0.5 - smooth(70, 100, p[1]) * 0.08);
   const earFur = (seed: number, pts: Pt[], mix: (p: Pt) => Mix) =>
     fur({ seed, count: 520, box: [38, 12, 162, 104], inside: (p) => inPoly(p, pts), mix, dir: () => -Math.PI / 2, len: [2.5, 5.5], width: 0.85 });
 
@@ -347,11 +350,14 @@ function sittingParts(id: string) {
   return {
     defs: `<defs><clipPath id="${id}-body"><path d="${BODY_PATH}"/></clipPath>
 <filter id="${id}-bsoft" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+<filter id="${id}-tsoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".7"/></filter>
 <radialGradient id="${id}-shade"><stop offset="0" stop-color="#1d140e" stop-opacity=".55"/><stop offset="1" stop-color="#1d140e" stop-opacity="0"/></radialGradient>
 <clipPath id="${id}-legs"><path d="M84,222 C82,250 82,272 84,288 L116,288 C118,272 118,250 116,222Z M124,222 C122,250 122,272 124,288 L156,288 C158,272 158,250 156,222Z"/></clipPath></defs>`,
-    tail: `<g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#2d221a" stroke-width="17" fill="none" stroke-linecap="round"/>
-<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8682f" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 7 9 6 3 9" opacity=".85" filter="url(#${id}-bsoft)"/>
-<path d="M190,286 C228,290 236,254 224,230" stroke="#7a5131" stroke-width="3" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/></g>`,
+    tail: `<g class="cat-tail"><path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#b8692f" stroke-width="16" fill="none" stroke-linecap="round"/>
+<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#d08240" stroke-width="7" fill="none" stroke-linecap="round" opacity=".55"/>
+<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#231912" stroke-width="16.5" fill="none" stroke-dasharray="0 9 8 9 8 9 8 9 8 9 8 9 8 9 8 8 30" opacity=".92" filter="url(#${id}-tsoft)"/>
+<path d="M186,284 C232,292 242,250 226,222 C220,212 214,206 210,200" stroke="#7a4a26" stroke-width="2" fill="none" stroke-dasharray="2 5" opacity=".5"/>
+<circle cx="210.5" cy="201" r="8.2" fill="#231912" filter="url(#${id}-tsoft)"/></g>`,
     body: `<g class="cat-breath">
 <path d="${BODY_PATH}" fill="#7a5132"/>
 <g clip-path="url(#${id}-body)">
