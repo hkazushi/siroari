@@ -67,7 +67,7 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 
 - 絵は `src/lib/catArt.ts` がコードで生成する（実在の飼い猫がモデル。額の黒い縦筋・向かって右のオレンジ・口元の左右の色の違いを崩さない）
 - 柄は図形で区切らず「黒さの場（`headDark` / `bodyMix`）＋ノイズ」で決める。図形で塗ると黒い部分が貼り付けたように分かれて見える（2026-11-26 にユーザー指摘）
-- 名前は「あかちゃん」（`CAT_NAME`）。ひとことに語尾「にゃ」は付けない（ユーザー指定）
+- 名前は「あかちゃん」（`CAT_NAME`）。ひとことに語尾「にゃ」は付けない。常に表示（表示オン・オフの設定は不要とのことで削除）（ユーザー指定）
 - 画面用は `src/components/Cat.tsx`（`CatHead` / `CatSitting` / 歩く `CatWalking` / 背景の `BackgroundCat`）。背景では座る→歩く→座るを繰り返す。歩く姿は顔だけ正面の `/cat-head.svg` を重ね、左向きでも顔は反転しない（柄が逆になるため）。アニメーションは `globals.css` の `.cat-live` 配下
 - `CatSitting` は `public/cat-layer-{tail,body,head}.svg` を `<img>` で重ね、目だけインライン SVG。しっぽ・首は CSS transform で動かす
 - アイコン・レイヤー類（`public/cat-*.svg`・`cat-icon-*.png`・`apple-touch-icon.png`・`favicon-32.png`）は生成物。`catArt.ts` を変えたら `node scripts/gen-cat-icons.mjs` を実行（rsvg-convert が必要）

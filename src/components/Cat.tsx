@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { catHeadInner, catSittingEyesInner, catWalkLegsInner } from "@/lib/catArt";
 import { cn } from "@/lib/utils";
 
@@ -104,39 +104,6 @@ export function CatSitting({
 // 背景の猫（画面の右下に座っている）
 // ---------------------------------------------------------------------
 
-const STORAGE_KEY = "kaikei.cat";
-const EVENT = "kaikei-cat-change";
-
-export function useCatEnabled(): [boolean, (v: boolean) => void] {
-  const [on, setOn] = useState(true);
-  useEffect(() => {
-    const read = () => {
-      try {
-        setOn(localStorage.getItem(STORAGE_KEY) !== "off");
-      } catch {
-        /* private mode */
-      }
-    };
-    queueMicrotask(read);
-    window.addEventListener(EVENT, read);
-    window.addEventListener("storage", read);
-    return () => {
-      window.removeEventListener(EVENT, read);
-      window.removeEventListener("storage", read);
-    };
-  }, []);
-  const set = useCallback((v: boolean) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, v ? "on" : "off");
-    } catch {
-      /* ignore */
-    }
-    setOn(v);
-    window.dispatchEvent(new Event(EVENT));
-  }, []);
-  return [on, set];
-}
-
 /** イメージキャラの名前 */
 export const CAT_NAME = "あかちゃん";
 
@@ -196,7 +163,6 @@ type Pose = { mode: "sit" | "walk"; x: number; dir: 1 | -1; dur: number };
  * タップするとひとこと。「動きを減らす」設定の端末では歩かない。
  */
 export function BackgroundCat() {
-  const [on] = useCatEnabled();
   const [tip, setTip] = useState<string | null>(null);
   const [hop, setHop] = useState(0);
   const [vw, setVw] = useState(0);
@@ -230,7 +196,7 @@ export function BackgroundCat() {
 
   // 座る → しばらくして歩く → 着いたら座る
   useEffect(() => {
-    if (!on || !pose || !vw) return;
+    if (!pose || !vw) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduce) return;
     if (pose.mode === "sit") {
@@ -250,7 +216,7 @@ export function BackgroundCat() {
     }
     const t = setTimeout(() => setPose((p) => (p ? { ...p, mode: "sit", dur: 0 } : p)), pose.dur * 1000 + 50);
     return () => clearTimeout(t);
-  }, [on, pose, vw, walkW]);
+  }, [pose, vw, walkW]);
 
   useEffect(
     () => () => {
@@ -259,7 +225,7 @@ export function BackgroundCat() {
     [],
   );
 
-  if (!on || !pose) return null;
+  if (!pose) return null;
 
   function poke() {
     setHop((h) => h + 1);
