@@ -132,3 +132,13 @@ body {
     transition: none !important;
   }
 }
+
+/* PIN を間違えたときの揺れ */
+.pin-shake {
+  animation: pin-shake 0.35s ease-in-out;
+}
+@keyframes pin-shake {
+  0%, 100% { translate: 0 0; }
+  20%, 60% { translate: -8px 0; }
+  40%, 80% { translate: 8px 0; }
+}

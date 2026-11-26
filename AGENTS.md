@@ -48,7 +48,10 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 
 ### 認証
 
-- Supabase Auth（メール＋パスワード）。画面側は `AuthGate` が未ログインならログイン画面を出す
+- ログイン画面は **4桁の番号（PIN）**。照合は `/api/auth/pin`（サーバー）だけで行い、合っていればサーバーが `LOGIN_EMAIL` / `LOGIN_PASSWORD` で Supabase にログインしてセッションを返す（クライアントは `setSession`）。**PIN をクライアントのコードに書かない**
+- 総当たり対策: `login_guard` テーブル＋ `pin_guard_*` 関数（schema.sql の 9）。5 回失敗でロック、ロック時間は倍々で最長 24 時間。リセット関数は authenticated のみ実行可（anon に grant しないこと）
+- 予備としてメールアドレス＋パスワードでもログインできる（ログイン画面の下のリンク）
+- 画面側は `AuthGate` が未ログインならログイン画面を出す
 - RLS で `auth.uid() = user_id` の行のみ。insert 時の `user_id` は DB の default `auth.uid()` に任せている
 - `/api/ai/*` は `requireUser`（`src/lib/serverAuth.ts`）で Bearer トークンを検証。クライアントは `useData().callApi` を使う
 
@@ -83,5 +86,5 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 
 - Vercel プロジェクト `higashiyama-kaikei`（GitHub 連携。main への push で自動デプロイ）
 - 本番: https://higashiyama-kaikei.vercel.app
-- 環境変数: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `OPENROUTER_API_KEY`
+- 環境変数: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `OPENROUTER_API_KEY` / `LOGIN_PIN` / `LOGIN_EMAIL` / `LOGIN_PASSWORD`
 - DB スキーマ: `supabase/schema.sql`（冪等。SQL Editor に貼って実行）

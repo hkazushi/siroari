@@ -194,3 +194,58 @@ create policy "receipts own update" on storage.objects for update to authenticat
   using (bucket_id = 'receipts' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "receipts own delete" on storage.objects for delete to authenticated
   using (bucket_id = 'receipts' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------
+-- 9. 4桁 PIN ログインの総当たり対策（ロックアウト）
+--   PIN の照合は /api/auth/pin（サーバー）で行う。ここは失敗回数とロックだけを持つ。
+--   - 5 回失敗でロック。ロック時間は 15 分 → 30 分 → 1 時間 … と倍になり最長 24 時間
+--   - 失敗の記録・状態確認は未ログインでも呼べる（攻撃者にできるのはロックを早めることだけ）
+--   - リセットはログイン済みユーザーだけが呼べる（攻撃者がカウンタを戻せないように）
+-- ---------------------------------------------------------------------
+create table if not exists public.login_guard (
+  id int primary key default 1 check (id = 1),
+  failures int not null default 0,
+  lock_count int not null default 0,
+  locked_until timestamptz,
+  updated_at timestamptz not null default now()
+);
+insert into public.login_guard (id) values (1) on conflict (id) do nothing;
+alter table public.login_guard enable row level security; -- ポリシー無し = 直接は読み書き不可
+
+create or replace function public.pin_guard_status()
+returns timestamptz language sql security definer set search_path = public as $$
+  select case when locked_until > now() then locked_until else null end from login_guard where id = 1;
+$$;
+
+create or replace function public.pin_guard_fail()
+returns json language plpgsql security definer set search_path = public as $$
+declare g login_guard;
+begin
+  select * into g from login_guard where id = 1 for update;
+  if g.locked_until is not null and g.locked_until > now() then
+    return json_build_object('locked_until', g.locked_until, 'remaining', 0);
+  end if;
+  g.failures := g.failures + 1;
+  if g.failures >= 5 then
+    g.locked_until := now() + least(interval '15 minutes' * power(2, g.lock_count), interval '24 hours');
+    g.lock_count := g.lock_count + 1;
+    g.failures := 0;
+  end if;
+  update login_guard set failures = g.failures, lock_count = g.lock_count, locked_until = g.locked_until, updated_at = now() where id = 1;
+  return json_build_object(
+    'locked_until', case when g.locked_until > now() then g.locked_until else null end,
+    'remaining', case when g.locked_until > now() then 0 else 5 - g.failures end
+  );
+end $$;
+
+create or replace function public.pin_guard_success()
+returns void language sql security definer set search_path = public as $$
+  update login_guard set failures = 0, lock_count = 0, locked_until = null, updated_at = now() where id = 1;
+$$;
+
+revoke all on function public.pin_guard_status() from public;
+revoke all on function public.pin_guard_fail() from public;
+revoke all on function public.pin_guard_success() from public;
+grant execute on function public.pin_guard_status() to anon, authenticated;
+grant execute on function public.pin_guard_fail() to anon, authenticated;
+grant execute on function public.pin_guard_success() to authenticated;

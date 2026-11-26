@@ -42,7 +42,12 @@ Next.js 16（App Router）/ React 19 / Tailwind CSS v4 / Supabase（Auth・Postg
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # sb_publishable_...
 OPENROUTER_API_KEY=...
+LOGIN_PIN=....                      # ログイン画面の 4 桁の番号
+LOGIN_EMAIL=...                     # 2 で作ったユーザーのメール
+LOGIN_PASSWORD=...                  # 2 で作ったユーザーのパスワード
 ```
+
+ログイン画面は 4 桁の番号。5 回間違えるとロック（15 分から倍々、最長 24 時間）。
 
 4. `npm install && npm run dev`
 
