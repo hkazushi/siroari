@@ -18,7 +18,7 @@ import {
 import { useData } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { Logo } from "./Logo";
+import { BackgroundCat, CatHead } from "./Cat";
 import { TxDialogProvider, useTxDialog } from "./TransactionDialog";
 import { Button, Spinner } from "./ui";
 
@@ -63,7 +63,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur print:hidden">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
           <Link href="/" className="flex items-center gap-2">
-            <Logo size={32} />
+            <CatHead size={34} />
             <div className="leading-tight">
               <div className="text-sm font-bold text-[#1e3a5f]">会計アプリ</div>
               <div className="text-[10px] text-slate-500">{profile.trade_name || "東山メンテナンス"}</div>
@@ -110,7 +110,8 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-5">
+      <BackgroundCat />
+      <main className="relative z-10 mx-auto max-w-6xl px-4 py-5">
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="font-bold">データを読み込めませんでした</p>

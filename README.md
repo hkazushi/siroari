@@ -6,6 +6,8 @@ freee / マネーフォワード / 弥生 の代わりに、日々の取引入�
 - 本番: https://higashiyama-kaikei.vercel.app
 - リポジトリ: https://github.com/hkazushi/siroari（旧アプリ「害虫駆除 現場マップ」は タグ `v1-madorich`）
 
+イメージキャラは **サビ猫**（ロゴ・アプリアイコン・ログイン画面、画面右下に座っていてタップすると経理のひとこと）。
+
 ## 主な機能
 
 | 画面 | できること |

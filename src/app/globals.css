@@ -44,3 +44,94 @@ body {
     break-before: page;
   }
 }
+
+/* ---- イメージキャラ（サビ猫）のアニメーション ---- */
+.cat-live .cat-pupils {
+  transform: translate(var(--px, 0px), var(--py, 0px));
+  transition: transform 0.25s ease-out;
+}
+.cat-live .cat-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cat-blink 5.5s infinite;
+}
+.cat-live .cat-ear-r {
+  transform-box: fill-box;
+  transform-origin: 30% 100%;
+  animation: cat-ear 9s ease-in-out infinite;
+}
+.cat-live .cat-ear-l {
+  transform-box: fill-box;
+  transform-origin: 70% 100%;
+  animation: cat-ear-l 13s ease-in-out infinite;
+}
+.cat-live .cat-tail {
+  transform-box: view-box;
+  transform-origin: 186px 284px;
+  animation: cat-tail 3.2s ease-in-out infinite alternate;
+}
+.cat-live .cat-breath {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: cat-breath 4s ease-in-out infinite;
+}
+.cat-live .cat-head {
+  animation: cat-head 11s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+}
+.cat-hop {
+  animation: cat-hop 0.5s ease-out;
+}
+.cat-bubble {
+  animation: cat-bubble 0.25s ease-out;
+}
+
+@keyframes cat-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.08); }
+  96% { transform: scaleY(1); }
+}
+@keyframes cat-ear {
+  0%, 78%, 100% { rotate: 0deg; }
+  81% { rotate: -14deg; }
+  84% { rotate: 5deg; }
+  87% { rotate: 0deg; }
+}
+@keyframes cat-ear-l {
+  0%, 60%, 100% { rotate: 0deg; }
+  63% { rotate: 10deg; }
+  66% { rotate: 0deg; }
+}
+@keyframes cat-tail {
+  from { rotate: -7deg; }
+  to { rotate: 9deg; }
+}
+@keyframes cat-breath {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1.012 1.02; }
+}
+@keyframes cat-head {
+  0%, 40%, 100% { rotate: 0deg; }
+  48%, 58% { rotate: -7deg; }
+  66% { rotate: 0deg; }
+}
+@keyframes cat-hop {
+  0% { translate: 0 0; }
+  35% { translate: 0 -14px; }
+  60% { translate: 0 0; }
+  75% { translate: 0 -4px; }
+  100% { translate: 0 0; }
+}
+@keyframes cat-bubble {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-live *,
+  .cat-hop,
+  .cat-bubble {
+    animation: none !important;
+    transition: none !important;
+  }
+}

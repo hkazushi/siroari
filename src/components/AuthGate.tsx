@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { isCloudConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/data";
 import { YearProvider } from "@/lib/year";
-import { Logo } from "./Logo";
+import { CatSitting } from "./Cat";
 import { Button, Field, Input, Spinner } from "./ui";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -64,7 +64,7 @@ function Login() {
     <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6 flex flex-col items-center gap-2">
-          <Logo size={72} />
+          <CatSitting width={110} follow />
           <div className="text-center">
             <div className="text-lg font-bold text-[#1e3a5f]">会計アプリ</div>
             <div className="text-xs text-slate-500">東山メンテナンス 青色申告</div>

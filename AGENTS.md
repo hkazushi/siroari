@@ -57,6 +57,14 @@ Supabase は 1 リクエスト最大 1000 行なので `fetchAll` で range ペ�
 - モデル ID は `src/lib/openrouter.ts` の `MODELS`（2026-11 時点は全て `anthropic/claude-haiku-5.5`）。返答の JSON は `extractJson` で取り出す（json_object モードに依存しない）
 - 領収書画像はクライアントで 1600px JPEG に縮小してから送る（Vercel のリクエスト上限 4.5MB）
 
+### イメージキャラ（サビ猫）
+
+- 絵は `src/lib/catArt.ts` がコードで生成する（実在の飼い猫がモデル。額の黒い縦筋・向かって右のオレンジ・口元の左右の色の違いを崩さない）
+- 画面用は `src/components/Cat.tsx`（`CatHead` / `CatSitting` / 背景の `BackgroundCat`）。アニメーションは `globals.css` の `.cat-live` 配下
+- アイコン類（`public/cat-*.svg`・`cat-icon-*.png`・`apple-touch-icon.png`・`favicon-32.png`）は生成物。`catArt.ts` を変えたら `node scripts/gen-cat-icons.mjs` を実行（rsvg-convert が必要）
+- `catArt.ts` は import を持たない（Node が直接 .ts を読むため）
+- 請求書の印刷には会社ロゴ（`public/logo.png`）を使う。猫は出さない
+
 ## 過去に実際に踏んだ罠
 
 - **日付が 1 日ずれる**（2026-11-26 設計時に回避）: `Date#toISOString()` は UTC。日本時間 0〜9 時に前日になる → 日付は必ず `src/lib/format.ts` の `today()` / `toDateStr()`（ローカル日付）を使う

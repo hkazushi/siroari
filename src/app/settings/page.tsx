@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Download, LogOut } from "lucide-react";
+import { CatHead, useCatEnabled } from "@/components/Cat";
 import { Button, Card, Field, Input, PageHeader, Select, Spinner, Textarea, YearSelect } from "@/components/ui";
 import { OPENING_ACCOUNTS } from "@/lib/accounts";
 import { downloadBlob } from "@/lib/csv";
@@ -16,6 +17,7 @@ export default function SettingsPage() {
   const data = useData();
   const { profile, saveProfile, session } = data;
   const { years } = useYear();
+  const [catOn, setCatOn] = useCatEnabled();
   const [form, setForm] = useState<BusinessProfile>(profile);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -212,6 +214,18 @@ export default function SettingsPage() {
             ＝ 資産 {num(obAssets)} − 負債 {num(obLiab)}
           </span>
         </p>
+      </Card>
+
+      <Card className="mb-4 flex items-center gap-3 p-4">
+        <CatHead size={40} />
+        <div className="flex-1">
+          <h2 className="text-sm font-bold">背景のサビ猫</h2>
+          <p className="text-xs text-slate-600">画面の右下に座っています。タップすると経理のひとことを教えてくれます（この端末だけの設定）。</p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={catOn} onChange={(e) => setCatOn(e.target.checked)} className="h-4 w-4 accent-[#1e3a5f]" />
+          表示する
+        </label>
       </Card>
 
       <Card className="mb-4 space-y-3 p-4">
