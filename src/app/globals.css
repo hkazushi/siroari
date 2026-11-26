@@ -81,6 +81,30 @@ body {
   --py: 0px;
 }
 /* 呼吸（体全体の拡大縮小）は毛の本数が多く再描画が重いため使わない */
+/* 歩く姿 */
+.cat-walk .cat-leg {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: cat-leg 0.36s ease-in-out infinite alternate;
+}
+.cat-walk .cat-leg-b {
+  animation-delay: -0.36s;
+}
+.cat-walk .cat-walk-bob {
+  animation: cat-bob 0.18s ease-in-out infinite alternate;
+}
+.cat-walk .cat-walk-tail {
+  transform-origin: 26% 49%; /* しっぽの付け根 (78, 98) */
+  animation: cat-tail 0.9s ease-in-out infinite alternate;
+}
+@keyframes cat-leg {
+  from { rotate: -20deg; }
+  to { rotate: 20deg; }
+}
+@keyframes cat-bob {
+  from { translate: 0 0; }
+  to { translate: 0 -2px; }
+}
 .cat-hop {
   animation: cat-hop 0.5s ease-out;
 }
@@ -126,6 +150,7 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .cat-live *,
+  .cat-walk *,
   .cat-hop,
   .cat-bubble {
     animation: none !important;

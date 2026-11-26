@@ -2,7 +2,7 @@
 // （src/lib/catArt.ts を変更したら実行。rsvg-convert が必要: brew install librsvg）
 import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { catHeadSvg, catIconSvg, catLayerSvgs, catSittingInner } from "../src/lib/catArt.ts";
+import { catHeadSvg, catIconSvg, catLayerSvgs, catSittingInner, catWalkLayerSvgs } from "../src/lib/catArt.ts";
 
 const out = (p, s) => writeFileSync(new URL(`../public/${p}`, import.meta.url), s);
 out("cat-icon.svg", catIconSvg(512));
@@ -16,6 +16,9 @@ const layers = catLayerSvgs();
 out("cat-layer-tail.svg", layers.tail);
 out("cat-layer-body.svg", layers.body);
 out("cat-layer-head.svg", layers.head);
+const walk = catWalkLayerSvgs();
+out("cat-walk-body.svg", walk.body);
+out("cat-walk-tail.svg", walk.tail);
 for (const [name, size] of [["cat-icon-192.png", 192], ["cat-icon-512.png", 512], ["apple-touch-icon.png", 180], ["favicon-32.png", 32]]) {
   execFileSync("rsvg-convert", ["-w", String(size), "-h", String(size), "-o", `public/${name}`, "public/cat-icon.svg"]);
 }

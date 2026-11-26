@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, LogOut } from "lucide-react";
-import { CatHead, useCatEnabled } from "@/components/Cat";
+import { CAT_NAME, CatHead, useCatEnabled } from "@/components/Cat";
 import { Button, Card, Field, Input, PageHeader, Select, Spinner, Textarea, YearSelect } from "@/components/ui";
 import { OPENING_ACCOUNTS } from "@/lib/accounts";
 import { downloadBlob } from "@/lib/csv";
@@ -219,8 +219,8 @@ export default function SettingsPage() {
       <Card className="mb-4 flex items-center gap-3 p-4">
         <CatHead size={40} />
         <div className="flex-1">
-          <h2 className="text-sm font-bold">背景のサビ猫</h2>
-          <p className="text-xs text-slate-600">画面の右下に座っています。タップすると経理のひとことを教えてくれます（この端末だけの設定）。</p>
+          <h2 className="text-sm font-bold">背景の{CAT_NAME}（サビ猫）</h2>
+          <p className="text-xs text-slate-600">画面の下に座っていて、ときどき歩きます。タップすると経理のひとことを教えてくれます（この端末だけの設定）。</p>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={catOn} onChange={(e) => setCatOn(e.target.checked)} className="h-4 w-4 accent-[#1e3a5f]" />

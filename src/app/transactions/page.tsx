@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Paperclip, Plus, Search } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
+import { ReceiptImporter, ReceiptThumb } from "@/components/Receipt";
 import { useTxDialog } from "@/components/TransactionDialog";
 import { Badge, Button, Card, Empty, Input, PageHeader, Select, YearSelect } from "@/components/ui";
 import { ACCOUNTS, accountName, walletLabel } from "@/lib/accounts";
@@ -109,6 +110,8 @@ export default function TransactionsPage() {
         }
       />
 
+      <ReceiptImporter className="mb-3" />
+
       <Card className="mb-3 p-3">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
           <YearSelect value={year} onChange={setYear} years={years} />
@@ -184,7 +187,6 @@ export default function TransactionsPage() {
                           {t.business_ratio < 100 && <span>事業{t.business_ratio}%</span>}
                           {t.tax_rate === 8 && <span>軽減8%</span>}
                           {t.memo && t.partner_name && <span className="truncate">{t.memo}</span>}
-                          {t.receipt_path && <Paperclip size={11} />}
                         </span>
                       </span>
                       <span
@@ -193,6 +195,7 @@ export default function TransactionsPage() {
                         {yen(t.amount)}
                       </span>
                     </button>
+                    {t.receipt_path && <ReceiptThumb path={t.receipt_path} />}
                     {t.status === "unpaid" && (
                       <Button size="sm" variant="secondary" onClick={() => markPaid(t)} className="shrink-0">
                         {t.kind === "income" ? "入金済に" : "支払済に"}

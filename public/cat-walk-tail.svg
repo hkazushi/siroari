@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><defs><clipPath id="walk-body"><path d="M72,98 C70,72 112,62 160,64 C204,66 236,74 242,98 C246,124 232,144 206,149 C170,156 130,156 100,149 C78,144 70,124 72,98Z"/></clipPath>
+<filter id="walk-soft" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="1.8"/></filter>
+<filter id="walk-tsoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".7"/></filter></defs><path d="M78,98 C46,92 32,64 38,36 C40,26 46,18 54,14" stroke="#b8692f" stroke-width="15" fill="none" stroke-linecap="round"/>
+<path d="M78,98 C46,92 32,64 38,36 C40,26 46,18 54,14" stroke="#d08240" stroke-width="6" fill="none" stroke-linecap="round" opacity=".5"/>
+<path d="M78,98 C46,92 32,64 38,36 C40,26 46,18 54,14" stroke="#231912" stroke-width="15.5" fill="none" stroke-dasharray="0 9 8 9 8 9 8 9 8 9 8 30" opacity=".92" filter="url(#walk-tsoft)"/>
+<circle cx="54.5" cy="14.5" r="7.6" fill="#231912" filter="url(#walk-tsoft)"/></svg>

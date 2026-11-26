@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { Camera, ImageIcon, Mic, MicOff, Sparkles, Trash2 } from "lucide-react";
 import {
   EXPENSE_ACCOUNTS,
@@ -10,11 +10,12 @@ import {
   account,
   type Wallet,
 } from "@/lib/accounts";
-import { receiptUrl, removeReceipt, uploadReceipt, useData } from "@/lib/data";
+import { removeReceipt, uploadReceipt, useData } from "@/lib/data";
 import { parseAmount, today, yen } from "@/lib/format";
-import { blobToDataUrl, compressImage } from "@/lib/image";
-import type { TaxRate, Transaction, TransactionInput, TxKind } from "@/lib/types";
+import { compressImage } from "@/lib/image";
+import type { ReceiptEntry, TaxRate, Transaction, TransactionInput, TxKind } from "@/lib/types";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { ReceiptThumb } from "./Receipt";
 import { stripMeta } from "@/lib/utils";
 import { Button, Field, Input, Modal, Segmented, Select, Spinner, Textarea } from "./ui";
 
@@ -110,24 +111,19 @@ function TransactionDialog({
   const [aiBusy, setAiBusy] = useState<null | "receipt" | "text">(null);
   const [aiText, setAiText] = useState("");
   const [aiNote, setAiNote] = useState<string | null>(null);
-  const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  // このダイアログで新しく保存した領収書（保存せずに閉じたら消す）
+  const uploadedRef = useRef<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof TransactionInput>(k: K, v: TransactionInput[K]) => setForm((f) => ({ ...f, [k]: v }));
 
-  // 既存の領収書を表示
-  useEffect(() => {
-    if (!form.receipt_path || receiptBlob) return;
-    let alive = true;
-    receiptUrl(form.receipt_path)
-      .then((u) => alive && setReceiptPreview(u))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [form.receipt_path, receiptBlob]);
+  /** 保存せずに閉じる: このダイアログで上げた領収書は消す */
+  function cancel() {
+    const p = uploadedRef.current;
+    if (p && p !== tx?.receipt_path) void removeReceipt(p).catch(() => {});
+    onClose();
+  }
 
   const voice = useVoiceInput({
     onFinal: (t) => setAiText((s) => (s ? `${s} ${t}` : t).trim()),
@@ -208,12 +204,20 @@ function TransactionDialog({
     setAiBusy("receipt");
     setAiNote(null);
     try {
-      const blob = await compressImage(file);
-      setReceiptBlob(blob);
-      setReceiptPreview(URL.createObjectURL(blob));
-      const image = await blobToDataUrl(blob);
-      const r = await callApi<AiResult>("/api/ai/receipt", { image, today: today() });
-      applyAi(r, "receipt");
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const blob = isPdf ? file : await compressImage(file, 2000, 0.85);
+      const path = await uploadReceipt(session.user.id, blob);
+      const prev = uploadedRef.current;
+      if (prev && prev !== tx?.receipt_path) void removeReceipt(prev).catch(() => {});
+      uploadedRef.current = path;
+      set("receipt_path", path);
+      const { entries } = await callApi<{ entries: ReceiptEntry[] }>("/api/ai/receipt", { path, today: today() });
+      applyAi(entries[0], "receipt");
+      if (entries.length > 1) {
+        setAiNote(
+          `${entries.length} 件の領収書が写っています。1 件目を入れました。まとめて登録するときは取引画面の「領収書から自動で経費を登録」を使ってください`,
+        );
+      }
     } catch (e) {
       setAiNote(`読み取りに失敗しました: ${e instanceof Error ? e.message : e}（手入力で続けられます）`);
     } finally {
@@ -244,8 +248,7 @@ function TransactionDialog({
     if (!canSave) return;
     setBusy(true);
     try {
-      let receipt_path = form.receipt_path;
-      if (receiptBlob) receipt_path = await uploadReceipt(session.user.id, receiptBlob);
+      const receipt_path = form.receipt_path;
       const data: TransactionInput = {
         ...form,
         amount,
@@ -261,11 +264,10 @@ function TransactionDialog({
       } else {
         await addTransaction(data);
       }
+      uploadedRef.current = null; // 保存したので消さない
       if (addAnother) {
         setForm((f) => ({ ...blank(f.kind), date: f.date, wallet: f.wallet }));
         setAmountText("");
-        setReceiptBlob(null);
-        setReceiptPreview(null);
         setAiText("");
         setAiNote("保存しました。続けて入力できます");
       } else {
@@ -297,7 +299,7 @@ function TransactionDialog({
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={cancel}
       title={tx ? "取引を編集" : "取引を登録"}
       footer={
         <>
@@ -340,7 +342,7 @@ function TransactionDialog({
                 onClick={() => fileRef.current?.click()}
                 disabled={aiBusy !== null}
               >
-                <ImageIcon size={15} /> 画像を選択
+                <ImageIcon size={15} /> 画像・PDF
               </Button>
               <input
                 ref={cameraRef}
@@ -356,7 +358,7 @@ function TransactionDialog({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 hidden
                 onChange={(e) => {
                   void onReceipt(e.target.files?.[0]);
@@ -529,21 +531,15 @@ function TransactionDialog({
           <Textarea rows={2} value={form.memo} onChange={(e) => set("memo", e.target.value)} />
         </Field>
 
-        {receiptPreview && (
-          <div className="flex items-start gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={receiptPreview} alt="領収書" className="h-28 w-auto rounded-lg border object-contain" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setReceiptBlob(null);
-                setReceiptPreview(null);
-                set("receipt_path", null);
-              }}
-            >
-              領収書を外す
-            </Button>
+        {form.receipt_path && (
+          <div className="flex items-center gap-3">
+            <ReceiptThumb path={form.receipt_path} className="h-24 w-20" />
+            <div className="text-xs text-slate-500">
+              <p>この取引の領収書（タップで拡大）</p>
+              <Button variant="ghost" size="sm" className="mt-1 -ml-3" onClick={() => set("receipt_path", null)}>
+                領収書を外す
+              </Button>
+            </div>
           </div>
         )}
       </div>

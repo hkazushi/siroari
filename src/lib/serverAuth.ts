@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
  */
 export const OWNER_EMAIL = process.env.LOGIN_EMAIL || "owner@higashiyama-kaikei.example.com";
 
-export async function requireUser(req: Request): Promise<{ id: string } | Response> {
+export async function requireUser(req: Request): Promise<{ id: string; token: string } | Response> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return Response.json({ error: "Supabase 未設定です" }, { status: 500 });
@@ -20,5 +20,5 @@ export async function requireUser(req: Request): Promise<{ id: string } | Respon
   if (data.user.email?.toLowerCase() !== OWNER_EMAIL.toLowerCase()) {
     return Response.json({ error: "このアカウントでは利用できません" }, { status: 403 });
   }
-  return { id: data.user.id };
+  return { id: data.user.id, token };
 }

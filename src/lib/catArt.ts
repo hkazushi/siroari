@@ -434,6 +434,61 @@ export function catSittingEyesInner(id: string): string {
 <g transform="translate(20 -6)">${eye(74, 111, id)}${eye(127, 111, id)}</g>`;
 }
 
+// ---------------------------------------------------------------------
+// 歩く姿（横向き・右向き。viewBox 0 0 300 200）
+// 顔は正面の頭（/cat-head.svg）を画面側で重ねる（柄を崩さないため）。脚は画面側でインライン描画。
+// ---------------------------------------------------------------------
+
+const WALK_BODY = "M72,98 C70,72 112,62 160,64 C204,66 236,74 242,98 C246,124 232,144 206,149 C170,156 130,156 100,149 C78,144 70,124 72,98Z";
+const WALK_TAIL = "M78,98 C46,92 32,64 38,36 C40,26 46,18 54,14";
+const walkNoise = makeNoise(21);
+
+function walkMix(p: Pt): Mix {
+  const [x, y] = p;
+  const n = walkNoise(x, y, 18);
+  const n2 = walkNoise(x + 30, y - 10, 8);
+  let D = 0.3 + (n - 0.5) * 0.9 + (n2 - 0.5) * 0.35;
+  D += (1 - smooth(70, 92, y)) * 0.35; // 背中は黒っぽい
+  D -= smooth(118, 140, y) * 0.15; // お腹は明るめ
+  const m = mixFromDark(0.2 + D * 0.6, smooth(128, 146, y) * 0.25, false);
+  return [m[0] * 1.1, m[1], m[2], m[3]];
+}
+
+export function catWalkLayerSvgs(): Record<"body" | "tail", string> {
+  const id = "walk";
+  const wrap = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">${inner}</svg>`;
+  const insideBody = (p: Pt) => inEllipse(p, 157, 106, 88, 44);
+  const defs = `<defs><clipPath id="${id}-body"><path d="${WALK_BODY}"/></clipPath>
+<filter id="${id}-soft" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="1.8"/></filter>
+<filter id="${id}-tsoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".7"/></filter></defs>`;
+  const body = `${defs}<path d="${WALK_BODY}" fill="#7a5132"/>
+<g clip-path="url(#${id}-body)">
+<g filter="url(#${id}-soft)">${blobs({ seed: 51, count: 420, box: [66, 60, 248, 150], inside: insideBody, mix: (p) => { const m = walkMix(p); return [m[0], m[1] + m[2] * 0.7, m[2] * 0.3, m[3]]; }, r: [4, 7], pal: "body" })}</g>
+${fur({ seed: 52, count: 3000, box: [66, 60, 248, 150], inside: insideBody, mix: walkMix, dir: ([, y]) => Math.PI * 0.94 + ((y - 100) / 50) * 0.5, len: [3, 6.5], width: 0.9, pal: "body" })}
+</g>`;
+  const tail = `${defs}<path d="${WALK_TAIL}" stroke="#b8692f" stroke-width="15" fill="none" stroke-linecap="round"/>
+<path d="${WALK_TAIL}" stroke="#d08240" stroke-width="6" fill="none" stroke-linecap="round" opacity=".5"/>
+<path d="${WALK_TAIL}" stroke="#231912" stroke-width="15.5" fill="none" stroke-dasharray="0 9 8 9 8 9 8 9 8 9 8 30" opacity=".92" filter="url(#${id}-tsoft)"/>
+<circle cx="54.5" cy="14.5" r="7.6" fill="#231912" filter="url(#${id}-tsoft)"/>`;
+  return { body: wrap(body), tail: wrap(tail) };
+}
+
+/** 歩く脚（インライン用）。far = 奥の脚（暗め） */
+export function catWalkLegsInner(which: "far" | "near"): string {
+  const legs = which === "far" ? [{ x: 114, ph: "a" }, { x: 194, ph: "b" }] : [{ x: 94, ph: "b" }, { x: 214, ph: "a" }];
+  const fill = which === "far" ? "#6a4529" : "#b36631";
+  const paw = which === "far" ? "#5c3c25" : "#c3753b";
+  return legs
+    .map(
+      ({ x, ph }) => `<g class="cat-leg cat-leg-${ph}">
+<path d="M${x - 9},112 C${x - 9},140 ${x - 7},160 ${x - 6},176 Q${x + 1},186 ${x + 8},177 C${x + 8},160 ${x + 9},140 ${x + 9},112 Z" fill="${fill}"/>
+<path d="M${x - 8},158 l16,-2 M${x - 7},168 l15,-2" stroke="#1f150e" stroke-width="2.6" opacity=".4" stroke-linecap="round"/>
+<ellipse cx="${x + 2}" cy="180" rx="10" ry="5.5" fill="${paw}"/>
+</g>`,
+    )
+    .join("");
+}
+
 /** アプリアイコン用（背景つき・正方形） */
 export function catIconSvg(size = 512): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 200 200">

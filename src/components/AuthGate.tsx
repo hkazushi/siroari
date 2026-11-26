@@ -6,7 +6,7 @@ import { Delete } from "lucide-react";
 import { isCloudConfigured, supabase } from "@/lib/supabase";
 import { DataProvider } from "@/lib/data";
 import { YearProvider } from "@/lib/year";
-import { CatSitting } from "./Cat";
+import { CAT_NAME, CatSitting } from "./Cat";
 import { Spinner } from "./ui";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -45,6 +45,7 @@ function Login() {
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-5 flex flex-col items-center gap-2">
           <CatSitting width={100} follow />
+          <div className="-mt-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-[#991b1b]">{CAT_NAME}</div>
           <div className="text-center">
             <div className="text-lg font-bold text-[#1e3a5f]">会計アプリ</div>
             <div className="text-xs text-slate-500">東山メンテナンス 青色申告</div>

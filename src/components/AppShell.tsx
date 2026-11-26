@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
-  Bot,
   Building2,
   FileText,
   Home,
@@ -29,7 +28,6 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/reports", label: "決算・帳簿", icon: BarChart3 },
   { href: "/assets", label: "固定資産", icon: Building2 },
   { href: "/partners", label: "取引先", icon: Users },
-  { href: "/assistant", label: "AI相談", icon: Bot },
   { href: "/settings", label: "設定", icon: Settings },
 ];
 

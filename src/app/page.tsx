@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { AlertCircle, CalendarClock, ChevronRight, Plus } from "lucide-react";
 import { MORE_LINKS } from "@/components/AppShell";
 import { MonthlyChart } from "@/components/MonthlyChart";
+import { ReceiptImporter } from "@/components/Receipt";
 import { useTxDialog } from "@/components/TransactionDialog";
 import { Badge, Button, Card, Empty, PageHeader, Stat, YearSelect } from "@/components/ui";
 import { accountName } from "@/lib/accounts";
@@ -76,6 +77,8 @@ export default function Dashboard() {
         </Link>
       )}
 
+      <ReceiptImporter className="mb-4" />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="売上" value={yen(pl.revenueTotal)} sub={`取引 ${yearTxCount} 件`} />
         <Stat label="経費" value={yen(pl.expenseTotal + pl.cogs)} sub="減価償却費を含む" />
@@ -141,7 +144,7 @@ export default function Dashboard() {
             <Empty>
               取引がまだありません。
               <br />
-              右下（PC は右上）の「＋」から、領収書の撮影や音声でも登録できます。
+              上の枠に領収書の画像や PDF を入れると、自動で経費が登録されます。
             </Empty>
           ) : (
             <ul className="divide-y divide-slate-100">

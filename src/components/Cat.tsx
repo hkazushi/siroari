@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { catHeadInner, catSittingEyesInner } from "@/lib/catArt";
+import { catHeadInner, catSittingEyesInner, catWalkLegsInner } from "@/lib/catArt";
 import { cn } from "@/lib/utils";
 
 function safeId(raw: string) {
@@ -137,50 +137,170 @@ export function useCatEnabled(): [boolean, (v: boolean) => void] {
   return [on, set];
 }
 
+/** イメージキャラの名前 */
+export const CAT_NAME = "あかちゃん";
+
 const TIPS = [
-  "領収書はもらったらすぐ撮影するにゃ",
-  "10万円以上の道具は「固定資産」に登録にゃ",
-  "自宅兼事務所の家賃や電気代は、事業で使った割合だけ経費にゃ",
-  "確定申告は 3月15日まで。早めに準備するにゃ",
-  "請求書は「発行」すると売上に自動で入るにゃ",
-  "入金されたら「入金済」にするのを忘れずににゃ",
-  "e-Tax で出すと青色申告特別控除が 65万円になるにゃ",
-  "帳簿は 7年間保存。年に一度はバックアップにゃ",
-  "ATM で引き出したら「振替」で普通預金→現金にゃ",
-  "わからないことは「AI相談」で聞いてにゃ",
+  "領収書の画像や PDF を入れると、経費が自動で入るよ",
+  "領収書はもらったらすぐ撮影しておこう",
+  "10万円以上の道具は「固定資産」に登録してね",
+  "自宅兼事務所の家賃や電気代は、事業で使った割合だけ経費になるよ",
+  "確定申告は 3月15日まで。早めに準備しよう",
+  "請求書は「発行」すると売上に自動で入るよ",
+  "入金されたら「入金済」にするのを忘れずに",
+  "e-Tax で出すと青色申告特別控除が 65万円になるよ",
+  "帳簿は 7年間保存。年に一度はバックアップしよう",
+  "ATM で引き出したら「振替」で普通預金→現金だよ",
 ];
 
+/** 歩く姿（右向き）。dir=-1 で左向き（顔は反転しない＝柄が崩れない） */
+export function CatWalking({ width = 150, dir = 1 }: { width?: number; dir?: 1 | -1 }) {
+  const far = useMemo(() => catWalkLegsInner("far"), []);
+  const near = useMemo(() => catWalkLegsInner("near"), []);
+  const layer = "absolute inset-0 h-full w-full";
+  const height = (width * 200) / 300;
+  return (
+    <div className="cat-walk relative" style={{ width, height }}>
+      <div className="cat-walk-bob absolute inset-0">
+        <div className={layer} style={{ transform: dir === -1 ? "scaleX(-1)" : undefined }}>
+          {/* eslint-disable @next/next/no-img-element */}
+          <img src="/cat-walk-tail.svg" alt="" draggable={false} className={cn(layer, "cat-walk-tail")} />
+          <svg viewBox="0 0 300 200" className={layer} dangerouslySetInnerHTML={{ __html: far }} />
+          <svg viewBox="0 0 300 200" className={layer} dangerouslySetInnerHTML={{ __html: near }} />
+          <img src="/cat-walk-body.svg" alt="" draggable={false} className={layer} />
+        </div>
+        {/* 顔は正面のまま、進む向きの側に置く */}
+        <img
+          src="/cat-head.svg"
+          alt=""
+          draggable={false}
+          className="absolute"
+          style={{
+            width: `${(118 / 300) * 100}%`,
+            height: `${(118 / 200) * 100}%`,
+            top: `${(-2 / 200) * 100}%`,
+            left: dir === 1 ? `${(178 / 300) * 100}%` : `${(4 / 300) * 100}%`,
+          }}
+        />
+        {/* eslint-enable @next/next/no-img-element */}
+      </div>
+    </div>
+  );
+}
+
+type Pose = { mode: "sit" | "walk"; x: number; dir: 1 | -1; dur: number };
+
+/**
+ * 背景のあかちゃん。右下に座っていて、ときどき画面の下を歩いて別の場所に座り直す。
+ * タップするとひとこと。「動きを減らす」設定の端末では歩かない。
+ */
 export function BackgroundCat() {
   const [on] = useCatEnabled();
   const [tip, setTip] = useState<string | null>(null);
   const [hop, setHop] = useState(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [vw, setVw] = useState(0);
+  const [pose, setPose] = useState<Pose | null>(null);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idx = useRef(0);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
+  const mobile = vw > 0 && vw < 768;
+  const sitW = mobile ? 84 : 112;
+  const walkW = mobile ? 120 : 160;
+
+  // 画面幅
+  useEffect(() => {
+    const read = () => setVw(window.innerWidth);
+    queueMicrotask(read);
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
   }, []);
 
-  if (!on) return null;
+  // 最初は右下に座る
+  useEffect(() => {
+    if (!vw) return;
+    queueMicrotask(() =>
+      setPose((p) => {
+        const maxX = Math.max(8, vw - sitW - 16);
+        if (!p) return { mode: "sit", x: maxX, dir: -1, dur: 0 };
+        return p.x > maxX ? { ...p, x: maxX } : p;
+      }),
+    );
+  }, [vw, sitW]);
+
+  // 座る → しばらくして歩く → 着いたら座る
+  useEffect(() => {
+    if (!on || !pose || !vw) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+    if (pose.mode === "sit") {
+      const t = setTimeout(
+        () => {
+          const minX = 8;
+          const maxX = Math.max(minX, vw - walkW - 16);
+          if (maxX - minX < 120) return; // 狭い画面では歩かない
+          let target = minX + Math.random() * (maxX - minX);
+          if (Math.abs(target - pose.x) < 120) target = pose.x > (minX + maxX) / 2 ? minX + Math.random() * 60 : maxX - Math.random() * 60;
+          const dist = Math.abs(target - pose.x);
+          setPose({ mode: "walk", x: target, dir: target > pose.x ? 1 : -1, dur: dist / 55 });
+        },
+        12000 + Math.random() * 20000,
+      );
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setPose((p) => (p ? { ...p, mode: "sit", dur: 0 } : p)), pose.dur * 1000 + 50);
+    return () => clearTimeout(t);
+  }, [on, pose, vw, walkW]);
+
+  useEffect(
+    () => () => {
+      if (tipTimer.current) clearTimeout(tipTimer.current);
+    },
+    [],
+  );
+
+  if (!on || !pose) return null;
 
   function poke() {
     setHop((h) => h + 1);
     setTip(TIPS[idx.current % TIPS.length]);
     idx.current += 1;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setTip(null), 5000);
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    tipTimer.current = setTimeout(() => setTip(null), 5000);
   }
 
+  const w = pose.mode === "walk" ? walkW : sitW;
   return (
-    <div className="pointer-events-none fixed right-2 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-0 select-none md:right-6 md:bottom-3 print:hidden">
+    <div
+      className="pointer-events-none fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 z-0 select-none md:bottom-2 print:hidden"
+      style={{
+        transform: `translateX(${pose.x}px)`,
+        transition: pose.mode === "walk" ? `transform ${pose.dur}s linear` : "none",
+        width: w,
+      }}
+    >
       {tip && (
-        <div className="cat-bubble pointer-events-auto absolute right-2 bottom-full mb-1 w-56 rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 shadow-md">
+        <div
+          className={cn(
+            "cat-bubble pointer-events-auto absolute bottom-full mb-1 w-56 rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 shadow-md",
+            pose.x > vw / 2 ? "right-0" : "left-0",
+          )}
+        >
+          <div className="mb-0.5 text-[11px] font-bold text-[#991b1b]">{CAT_NAME}</div>
           {tip}
-          <span className="absolute -bottom-1.5 right-10 h-3 w-3 rotate-45 border-r border-b border-amber-200 bg-white" />
         </div>
       )}
-      <div key={hop} className={cn("pointer-events-auto", hop > 0 && "cat-hop")}>
-        <CatSitting width={96} follow onClick={poke} className="drop-shadow-sm md:!h-[150px] md:!w-[120px]" />
+      <div
+        key={hop}
+        className={cn("pointer-events-auto cursor-pointer", hop > 0 && "cat-hop")}
+        onClick={poke}
+        role="button"
+        aria-label={`${CAT_NAME}（サビ猫）`}
+      >
+        {pose.mode === "walk" ? (
+          <CatWalking width={walkW} dir={pose.dir} />
+        ) : (
+          <CatSitting width={sitW} follow className="drop-shadow-sm" />
+        )}
       </div>
     </div>
   );

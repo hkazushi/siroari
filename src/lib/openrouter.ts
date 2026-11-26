@@ -4,21 +4,25 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
  * 使用モデル（2026-11 時点で OpenRouter に存在し、安価なもの）
- * - vision: 領収書の読み取り（画像入力対応）
+ * - vision: 領収書の読み取り（画像・PDF 入力対応）
  * - parse : 文章 → 取引データ（JSON は extractJson で取り出す）
- * - chat  : 会計の相談
  * モデルは廃止されることがある（gemini-2.0-flash-001 / claude-3.5-haiku は廃止済み）。
  * 404 / "No endpoints found" が出たら https://openrouter.ai/models で現行 ID を確認する。
  */
 export const MODELS = {
   vision: "anthropic/claude-haiku-5.5",
   parse: "anthropic/claude-haiku-5.5",
-  chat: "anthropic/claude-haiku-5.5",
 } as const;
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+        | { type: "file"; file: { filename: string; file_data: string } }
+      >;
 };
 
 export async function openRouterChat({

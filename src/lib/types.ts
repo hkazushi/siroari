@@ -124,3 +124,16 @@ export const DEFAULT_PROFILE: BusinessProfile = {
   blue_deduction: 650000,
   opening_balances: {},
 };
+
+/** AI が領収書から読み取った 1 件分 */
+export interface ReceiptEntry {
+  kind: "expense" | "income";
+  date: string;
+  amount: number;
+  account_code: string;
+  tax_rate: 0 | 8 | 10;
+  partner_name: string;
+  memo: string;
+  wallet: "cash" | "bank" | "card" | "owner";
+  invoice_number: string;
+}
